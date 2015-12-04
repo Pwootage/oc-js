@@ -1,0 +1,18 @@
+[
+{
+  "modid": "oc-nashorn",
+  "name": "OpenComputers Nashorn Arch",
+  "description": "OpenComputers Nashorn (ES6) Architecture",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Pwootage"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "requiredMods": ["Forge", "OpenComputers"],
+  "dependencies": ["OpenComputers"],
+  "useDependencyInformation": "true"
+}
+]

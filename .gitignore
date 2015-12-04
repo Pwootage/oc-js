@@ -1,0 +1,21 @@
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+classes
+
+# JS
+node_modules
+src/main/resources/assets/oc/js/
+.baseDir.ts
+.tscache

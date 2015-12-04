@@ -1,0 +1,121 @@
+import java.nio.file.Files
+
+plugins {
+    id "net.minecraftforge.gradle.forge" version "2.0.2"
+}
+
+apply plugin: 'scala'
+
+version = "1.0"
+group = "com.pwootage.oc.nashorn"
+archivesBaseName = "oc-nashorn"
+
+minecraft {
+    version = "1.8-11.14.4.1563"
+    runDir = "run"
+
+    // the mappings can be changed at any time, and must be in the following format.
+    // snapshot_YYYYMMDD   snapshot are built nightly.
+    // stable_#            stables are built at the discretion of the MCP team.
+    // Use non-default mappings at your own risk. they may not allways work.
+    // simply re-run your setup task after changing the mappings to update your workspace.
+    mappings = "snapshot_20141130"
+    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+
+    replaceIn "com/pwootage/oc/nashorn/OCNASHORN.scala"
+    replace "@VERSION@", project.version
+}
+
+repositories {
+    maven { url = "http://maven.cil.li/" }
+}
+
+dependencies {
+    compile "li.cil.oc:OpenComputers:MC1.8-1.5.+:api"
+}
+
+task ts(type: Exec) {
+    File inDir = file("src/main/ts")
+    File outDir = file("$buildDir/ts")
+    Set<File> source = fileTree(inDir) {
+        include "**/*.ts"
+    }.files
+
+    executable "tsc"
+
+    //Dirty hack because osx/intellij path -.-
+    if (System.getProperty("os.name").toLowerCase().contains("mac")) {
+        if (!System.getenv("PATH").contains("/usr/local/bin")) {
+            executable "/usr/local/bin/node"
+            args "/usr/local/bin/tsc"
+        }
+    }
+
+    args "--rootDir", inDir.toString()
+    args "--outDir", outDir.toString()
+    args "--module", "commonjs"
+    args "--target", "ES5"
+    args source
+}
+
+task uglify(type: UglifyTask, dependsOn: 'ts') {
+    source = file("$buildDir/ts")
+    target = file("$buildDir/resources/main/assets/oc-nashorn/")
+
+}
+
+processResources.dependsOn('uglify')
+
+processResources {
+    // this will ensure that this task is redone when the versions change.
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.minecraft.version
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+
+        expand 'version': project.version, 'mcversion': project.minecraft.version
+    }
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+class UglifyTask extends DefaultTask {
+    @InputDirectory
+    def File source
+
+    @OutputDirectory
+    def File target
+
+    @TaskAction
+    void execute(IncrementalTaskInputs inputs) {
+        if (!inputs.incremental)
+            project.delete(target.listFiles())
+
+        inputs.outOfDate { change ->
+            def src = source.toPath().relativize(change.file.toPath())
+            def dest = target.toPath().resolve(src)
+
+            Files.createDirectories(dest.getParent())
+            project.exec {
+                executable "uglifyjs"
+                //Dirty hack because osx/intellij path -.-
+                if (System.getProperty("os.name").toLowerCase().contains("mac")) {
+                    if (!System.getenv("PATH").contains("/usr/local/bin")) {
+                        executable "/usr/local/bin/node"
+                        args "/usr/local/bin/uglifyjs"
+                    }
+                }
+                args "--screw-ie8", "--compress", "--mangle"
+                args "--output", dest.toAbsolutePath()
+                args "--", change.file.toString()
+            }
+        }
+
+        inputs.removed { change ->
+            new File(target, change.file.name).delete()
+        }
+    }
+}
