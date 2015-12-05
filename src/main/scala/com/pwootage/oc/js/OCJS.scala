@@ -6,21 +6,21 @@ import net.minecraftforge.fml.common.event.{FMLPostInitializationEvent, FMLIniti
 import org.apache.logging.log4j.LogManager
 
 @Mod(
-  modid = OCNashorn.ID,
-  name = OCNashorn.Name,
-  version = OCNashorn.Version,
+  modid = OCJS.ID,
+  name = OCJS.Name,
+  version = OCJS.Version,
   modLanguage = "scala",
   useMetadata = true,
   dependencies = "required-after:OpenComputers@[1.5.20,)"
 )
-object OCNashorn {
-  final val ID = "oc.nashorn"
+object OCJS {
+  final val ID = "oc.js"
 
-  final val Name = "oc-nashorn"
+  final val Name = "oc-js"
 
   final val Version = "@VERSION@"
 
-  var log = LogManager.getLogger("OC-QEMU")
+  var log = LogManager.getLogger("OC-JS")
 
   @EventHandler
   def preInit(e: FMLPreInitializationEvent): Unit = {

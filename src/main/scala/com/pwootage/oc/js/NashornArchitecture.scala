@@ -2,13 +2,15 @@ package com.pwootage.oc.js
 
 import java.io.{OutputStreamWriter, InputStreamReader}
 import java.lang.Iterable
-import javax.script.ScriptEngine
+import javax.script.{Invocable, ScriptEngine}
 
-import com.pwootage.oc.js.api.{JSConsoleDebugApi, JSComponentApi}
+import com.pwootage.oc.js.api.JSBiosDebugApi
 import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
+import com.pwootage.oc.js.api.JSComponentApi
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
+import java.util
 
 /**
   * Nashorn Arch
@@ -36,13 +38,16 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
         override def exposeToScripts(s: String): Boolean = s.startsWith("com.pwootage.oc.nashorn.api")
       })
     //mainEngine.getContext.setWriter(new OutputStreamWriter(System.out))
+    val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc/js/bios/bios.js"))
+    //Load kernel
+    mainEngine.eval(kernelReader)
 
-    //Register APIs
-    new JSComponentApi(this).register(mainEngine)
-    new JSConsoleDebugApi(this).register(mainEngine)
+    //Setup bios
+    val bios = new util.HashMap[String, Object]()
+    bios.put("component", new JSComponentApi(machine))
+    bios.put("console", new JSBiosDebugApi(machine))
 
-    val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc-nashorn/bios/bios.js"))
-    executionThread = new NashornExecutionThread(mainEngine, kernelReader)
+    executionThread = new NashornExecutionThread(machine, mainEngine, se => se.asInstanceOf[Invocable].invokeFunction("__bios__", bios))
     executionThread.start()
 
     _initialized = true
@@ -56,7 +61,7 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
     try {
 
     } catch {
-      case e: Throwable => OCNashorn.log.error("Unknown exception was thrown by CPU!", e)
+      case e: Throwable => OCJS.log.error("Unknown exception was thrown by CPU!", e)
     }
   }
 
@@ -81,7 +86,7 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
     try {
 
     } catch {
-      case e: Throwable => OCNashorn.log.warn("Error in CPU loop: ", e)
+      case e: Throwable => OCJS.log.warn("Error in CPU loop: ", e)
     }
     new ExecutionResult.Sleep(1)
   }

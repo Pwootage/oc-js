@@ -1,8 +1,8 @@
 [
 {
-  "modid": "oc-nashorn",
-  "name": "OpenComputers Nashorn Arch",
-  "description": "OpenComputers Nashorn (ES6) Architecture",
+  "modid": "oc-js",
+  "name": "OpenComputers JS Arch",
+  "description": "OpenComputers Javascript (ES5) Architecture",
   "version": "${version}",
   "mcversion": "${mcversion}",
   "url": "",

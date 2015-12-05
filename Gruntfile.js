@@ -16,6 +16,11 @@ module.exports = function(grunt) {
       }
     },
     uglify: {
+      options: {
+        mangle: false,
+        compress: false,
+        beautify: true
+      },
       build: {
         files: [{
           expand: true,
@@ -24,11 +29,15 @@ module.exports = function(grunt) {
           dest: 'src/main/resources/assets/oc/js/'
         }]
       }
+    },
+    watch: {
+      files: ['src/main/ts/**/*.ts'],
+      tasks: ['default']
     }
   });
 
-  // Load the plugin that provides the "uglify" task.
   grunt.loadNpmTasks('grunt-contrib-uglify');
+  grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-ts');
   grunt.loadNpmTasks('grunt-newer');
 
