@@ -4,7 +4,7 @@ import java.io.{OutputStreamWriter, InputStreamReader}
 import java.lang.Iterable
 import javax.script.{Invocable, ScriptEngine}
 
-import com.pwootage.oc.js.api.{JSComputerApi, JSBiosDebugApi, JSComponentApi}
+import com.pwootage.oc.js.api.{JSComputerApi, JSBiosInternalAPI, JSComponentApi}
 import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
 import li.cil.oc.api.machine.ExecutionResult.SynchronizedCall
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
@@ -50,8 +50,8 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
       executionThread = new NashornExecutionThread(machine, mainEngine, se => se.asInstanceOf[Invocable].invokeFunction("__bios__", bios))
 
       //Setup bios
+      bios.put("bios", new JSBiosInternalAPI(machine, mainEngine))
       bios.put("component", new JSComponentApi(machine, executionThread.runSyncMethodCaller))
-      bios.put("console", new JSBiosDebugApi(machine))
       bios.put("computer", new JSComputerApi(machine, executionThread.signalHandler))
 
       executionThread.start()

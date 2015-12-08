@@ -1,23 +1,38 @@
-var component:BiosComponentApi;
-var crash:(msg:string)=>void;
+var $bios:BiosAPI;
 
 var __bios__ = function (api) {
   //Remove global bios reference
   __bios__ = null;
 
-  component = {
-    list: (filter?:string) =>
-      api.component.list(filter || ""),
-    invoke: (address:string, name:string, ...args:any[]) =>
-      api.component.invoke(address, name, args),
-    doc: (address:string, name:string) =>
-      api.component.doc(address, name),
-    methods: (address:string) => api.component.methods(address),
-    type: (address:string) =>
-      api.component.type(address),
-    proxy: (address:string) => {
+  class BiosComponentApiImpl implements BiosComponentApi {
+    list(filter?:string):{ [key:string]:string } {
+      return api.component.list(filter || "");
+    }
+
+    invoke(address:string, name:string, ...args:any[]):any|any[] {
+      let res:any[] = api.component.invoke(address, name, args);
+      if (res.length === 1) {
+        return res[0];
+      } else {
+        return res;
+      }
+    }
+
+    doc(address:string, name:string):string {
+      return api.component.doc(address, name);
+    }
+
+    methods(address:string):{ [key:string]:ComponentMethodInfo } {
+      return api.component.methods(address);
+    }
+
+    type(address:string):string {
+      return api.component.type(address)
+    }
+
+    proxy(address:string):any {
       let res:any = {};
-      let methods = component.methods(address);
+      let methods = this.methods(address);
       if (!methods) return null;
       Object.defineProperty(res, "uuid", {
         enumerable: true,
@@ -40,44 +55,48 @@ var __bios__ = function (api) {
         }
       }
       return res;
-    },
-    first: (type:string) => {
-      let components = component.list(type);
+    }
+
+    first(type:string):any {
+      let components = $bios.component.list(type);
       let address;
       for (let k in components) {
         address = k;
         break;
       }
+
       if (!address) {
         return null;
       } else {
-        return component.proxy(address);
+        return $bios.component.proxy(address);
       }
     }
-  };
-
-  crash = (msg) => {
-    let gpu:GPUComponent = component.first('gpu');
-    let screen = component.first('screen');
-    if (gpu && screen) {
-      gpu.bind(screen.uuid);
-    }
-    api.console.crash(msg);
-  };
-
-  let c = component.list("eeprom");
-  let eeprom;
-  for (var i in c) {
-    eeprom = i;
-    break;
   }
+
+  class BiosAPIImpl implements BiosAPI {
+    component = new BiosComponentApiImpl();
+
+    crash(msg:string):void {
+      let gpu:GPUComponent = $bios.component.first('gpu');
+      let screen = $bios.component.first('screen');
+      if (gpu && screen) {
+        gpu.bind(screen.uuid);
+      }
+      api.bios.crash(msg);
+    }
+
+    compile(script:string):any {
+      return api.bios.compile(script);
+    }
+  }
+
+  $bios = new BiosAPIImpl();
+
+  let eeprom: EEPROMComponentAPI = $bios.component.first("eeprom");
 
   if (!eeprom) {
-    crash('No eeprom!');
-  }
-
-  while (true) {
-    let sig = api.computer.signal();
-    if (sig) api.console.log(`${sig.name} ${sig.args}`);
+    $bios.crash('No eeprom!');
+  } else {
+    $bios.compile(eeprom.get());
   }
 };
