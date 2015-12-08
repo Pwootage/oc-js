@@ -3,11 +3,16 @@ package com.pwootage.oc.js
 import java.io.Reader
 import javax.script.{Invocable, ScriptContext, ScriptEngine}
 
-import li.cil.oc.api.machine.Machine
+import com.pwootage.oc.js.api.JSExitException
+import li.cil.oc.api.machine.{Signal, Machine}
+
+import scala.concurrent.Promise
 
 class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngine) => Unit) extends Thread {
   private var _jsRunning = true
   private var _exception: Option[Throwable] = None
+  val runSyncMethodCaller = new AsyncMethodCaller
+  val signalHandler = new OCSignalHandler
 
   override def run(): Unit = {
     try r(se) catch {
@@ -15,7 +20,19 @@ class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngin
     } finally {
       _jsRunning = false
     }
-    machine.crash(_exception.map(_.toString).getOrElse("Javascript ended execution"))
+    _exception match {
+      case Some(e: JSExitException) => machine.crash(e.getMessage)
+      case Some(e: RuntimeException) => //Everything's fine
+        e.getCause match {
+          case e: JSExitException => machine.crash(e.getMessage)
+          case _: InterruptedException => //Everything's fine (we just want to shut down JS)
+          case _ =>
+            machine.crash("JS error: " + e.toString)
+            OCJS.log.error("Error in JS thread", e)
+        }
+      case _ => machine.crash("JS ended execution.")
+    }
+
   }
 
   /**
@@ -24,4 +41,18 @@ class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngin
   def jsRunning = _jsRunning
 
   def exception = _exception
+
+  def beNiceKill() = {
+    this.interrupt()
+    val t = this
+    new Thread(new Runnable {
+      override def run(): Unit = {
+        Thread.sleep(10000)
+        if (t._jsRunning) {
+          OCJS.log.error("Forcibly killing a javascript thread")
+          t.stop()
+        }
+      }
+    }).start()
+  }
 }

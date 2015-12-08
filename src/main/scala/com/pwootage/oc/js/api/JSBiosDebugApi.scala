@@ -10,6 +10,6 @@ class JSBiosDebugApi(machine: Machine) {
 
   def crash(msg: String): Unit = {
     machine.crash(msg)
-    throw new Error("JS Crashed: " + msg)
+    throw new JSExitException("JS Crashed: " + msg)
   }
 }

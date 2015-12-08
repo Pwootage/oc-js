@@ -2,30 +2,37 @@ package com.pwootage.oc.js.api
 
 import java.util
 
-import com.pwootage.oc.js.NashornArchitecture
-import li.cil.oc.api.machine.Machine
+import com.pwootage.oc.js.{AsyncMethodCaller, NashornArchitecture}
+import li.cil.oc.api.machine.{LimitReachedException, Machine}
 import li.cil.oc.api.network.Component
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.concurrent._
+import scala.concurrent.duration._
 
-class JSComponentApi(machine: Machine) {
-  /*
-  component.doc
-  component.fields
-  component.invoke
-  component.list
-  component.methods
-  component.proxy
-  component.slot
-  component.type
-   */
+class JSComponentApi(machine: Machine, sync: AsyncMethodCaller) {
   def list(name: String): util.Map[String, String] = machine.components.synchronized {
     machine.components().filter(t => t._2.contains(name))
   }
 
-  def invoke(address: String, method: String, args: Array[AnyRef]): AnyRef = {
-    machine.invoke(address, method, args)
+  def invoke(address: String, method: String, args: Array[AnyRef]): Array[AnyRef] = withComponent(address) { comp =>
+    val m = machine.methods(comp.host).get(method)
+    if (m == null) null else {
+      var res:Option[Array[AnyRef]] = None
+      if (m.direct()) {
+        try res = Some(machine.invoke(address, method, args)) catch {
+          case e: LimitReachedException => //Ignore and call sync
+          case e => throw e
+        }
+      }
+      res match {
+        case Some(x) => x
+        case None =>
+          //Sync call
+          Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10 seconds)
+      }
+    }
   }
 
   def doc(address: String, method: String): String = withComponent(address) { comp =>

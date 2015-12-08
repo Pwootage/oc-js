@@ -29,7 +29,7 @@ var __bios__ = function (api) {
           Object.defineProperty(res, method.name, {
             enumerable: true,
             "get": method.getter ? ((n) => api.component.invoke(address, n, [])).bind(this, method.name) : null,
-            "set": method.setter ? ((n, v) => api.component.invoke(address, n, [v])).bind(this, method.name): null
+            "set": method.setter ? ((n, v) => api.component.invoke(address, n, [v])).bind(this, method.name) : null
           });
         } else {
           Object.defineProperty(res, method.name, {
@@ -62,7 +62,7 @@ var __bios__ = function (api) {
     if (gpu && screen) {
       gpu.bind(screen.uuid);
     }
-      api.console.crash(msg);
+    api.console.crash(msg);
   };
 
   let c = component.list("eeprom");
@@ -74,7 +74,10 @@ var __bios__ = function (api) {
 
   if (!eeprom) {
     crash('No eeprom!');
-  } else {
-    crash(`Actually has eeprom: ${eeprom}`)
+  }
+
+  while (true) {
+    let sig = api.computer.signal();
+    if (sig) api.console.log(`${sig.name} ${sig.args}`);
   }
 };

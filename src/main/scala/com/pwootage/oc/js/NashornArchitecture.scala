@@ -4,13 +4,16 @@ import java.io.{OutputStreamWriter, InputStreamReader}
 import java.lang.Iterable
 import javax.script.{Invocable, ScriptEngine}
 
-import com.pwootage.oc.js.api.JSBiosDebugApi
+import com.pwootage.oc.js.api.{JSComputerApi, JSBiosDebugApi, JSComponentApi}
 import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
-import com.pwootage.oc.js.api.JSComponentApi
+import li.cil.oc.api.machine.ExecutionResult.SynchronizedCall
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 import java.util
+
+import scala.concurrent._
+import scala.concurrent.duration._
 
 /**
   * Nashorn Arch
@@ -29,39 +32,52 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
   }
 
   override def initialize(): Boolean = {
-    if (_initialized) return _initialized
+    try {
+      if (_initialized) return _initialized
 
-    sem = new NashornScriptEngineFactory()
-    mainEngine = sem.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"),
-      Thread.currentThread().getContextClassLoader,
-      new ClassFilter {
-        override def exposeToScripts(s: String): Boolean = s.startsWith("com.pwootage.oc.nashorn.api")
-      })
-    //mainEngine.getContext.setWriter(new OutputStreamWriter(System.out))
-    val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc/js/bios/bios.js"))
-    //Load kernel
-    mainEngine.eval(kernelReader)
+      sem = new NashornScriptEngineFactory()
+      mainEngine = sem.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"),
+        Thread.currentThread().getContextClassLoader,
+        new ClassFilter {
+          override def exposeToScripts(s: String): Boolean = s.startsWith("com.pwootage.oc.nashorn.api")
+        })
+      //mainEngine.getContext.setWriter(new OutputStreamWriter(System.out))
+      val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc/js/bios/bios.js"))
+      //Load kernel
+      mainEngine.eval(kernelReader)
 
-    //Setup bios
-    val bios = new util.HashMap[String, Object]()
-    bios.put("component", new JSComponentApi(machine))
-    bios.put("console", new JSBiosDebugApi(machine))
+      val bios = new util.HashMap[String, Object]()
+      executionThread = new NashornExecutionThread(machine, mainEngine, se => se.asInstanceOf[Invocable].invokeFunction("__bios__", bios))
 
-    executionThread = new NashornExecutionThread(machine, mainEngine, se => se.asInstanceOf[Invocable].invokeFunction("__bios__", bios))
-    executionThread.start()
+      //Setup bios
+      bios.put("component", new JSComponentApi(machine, executionThread.runSyncMethodCaller))
+      bios.put("console", new JSBiosDebugApi(machine))
+      bios.put("computer", new JSComputerApi(machine, executionThread.signalHandler))
 
-    _initialized = true
+      executionThread.start()
 
-    _initialized
+      _initialized = true
+
+      _initialized
+    } catch {
+      case e: Throwable =>
+        OCJS.log.error("Error in initialize", e)
+        machine.crash("Error in initialize: " + e.toString)
+    }
   }
 
   override def recomputeMemory(components: Iterable[ItemStack]): Boolean = components.iterator().hasNext
 
   override def runSynchronized(): Unit = {
     try {
-
+      if (executionThread.runSyncMethodCaller.outstandingSync) {
+        println("Sync call (synchronized)")
+        executionThread.runSyncMethodCaller.executeSync()
+      }
     } catch {
-      case e: Throwable => OCJS.log.error("Unknown exception was thrown by CPU!", e)
+      case e: Throwable =>
+        OCJS.log.error("Error in runSynchronized", e)
+        machine.crash("Error in runSynchronized" + e.toString)
     }
   }
 
@@ -69,6 +85,8 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
     //ScriptEngine can just be garbage collected
     sem = null
     mainEngine = null
+    if (executionThread != null) executionThread.beNiceKill()
+    executionThread = null
 
     _initialized = false
   }
@@ -80,14 +98,36 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
   }
 
   override def load(nbt: NBTTagCompound): Unit = {
+    if (machine.isRunning) {
+      machine.stop()
+      machine.start()
+    }
   }
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     try {
-
+      if (isSynchronizedReturn) {
+        println("Sync return (threaded)")
+        //Trigger resume of javascript thread
+        executionThread.runSyncMethodCaller.resolveSync()
+        //Continue on our way
+        new ExecutionResult.Sleep(1)
+      } else {
+        if (executionThread.runSyncMethodCaller.outstandingSync) {
+          println("Sync call (threaded)")
+          new ExecutionResult.SynchronizedCall
+        } else {
+          if (!executionThread.signalHandler.push(machine.popSignal())) {
+            executionThread.beNiceKill()
+            return new ExecutionResult.Error("Javascript not responding; resorted to killing thread - this might be bad!")
+          }
+          new ExecutionResult.Sleep(1)
+        }
+      }
     } catch {
-      case e: Throwable => OCJS.log.warn("Error in CPU loop: ", e)
+      case e: Throwable =>
+        OCJS.log.error("Error in runThreaded", e)
+        new ExecutionResult.Error("Error in runThreaded: " + e.toString)
     }
-    new ExecutionResult.Sleep(1)
   }
 }
