@@ -9,7 +9,8 @@ module.exports = function(grunt) {
           module: 'commonjs',
           target: 'es5',
           rootDir: 'src/main/ts',
-          sourceMap: false
+          sourceMap: false,
+          fast: 'always'
         },
         src: ['src/main/ts/**/*.ts'],
         outDir: 'build/ts'
@@ -19,7 +20,7 @@ module.exports = function(grunt) {
       options: {
         //mangle: false,
         //compress: false,
-        //beautify: true
+        beautify: true
       },
       build: {
         files: [{

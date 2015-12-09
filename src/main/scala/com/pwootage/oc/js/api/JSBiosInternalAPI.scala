@@ -15,7 +15,5 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
     throw new JSExitException("JS Crashed: " + msg)
   }
 
-  def compile(script: String): Unit = {
-    scriptEngine.eval(script)
-  }
+  def compile(script: String): AnyRef = scriptEngine.eval(script)
 }

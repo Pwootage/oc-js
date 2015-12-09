@@ -34,37 +34,21 @@ dependencies {
     compile "li.cil.oc:OpenComputers:MC1.8-1.5.+:api"
 }
 
-task ts(type: Exec) {
-    File inDir = file("src/main/ts")
-    File outDir = file("$buildDir/ts")
-    Set<File> source = fileTree(inDir) {
-        include "**/*.ts"
-    }.files
-
-    executable "tsc"
+task grunt(type: Exec) {
+    executable "grunt"
 
     //Dirty hack because osx/intellij path -.-
     if (System.getProperty("os.name").toLowerCase().contains("mac")) {
         if (!System.getenv("PATH").contains("/usr/local/bin")) {
             executable "/usr/local/bin/node"
-            args "/usr/local/bin/tsc"
+            args "/usr/local/bin/grunt"
         }
     }
 
-    args "--rootDir", inDir.toString()
-    args "--outDir", outDir.toString()
-    args "--module", "commonjs"
-    args "--target", "ES5"
-    args source
+    args "default"
 }
 
-task uglify(type: UglifyTask, dependsOn: 'ts') {
-    source = file("$buildDir/ts")
-    target = file("$buildDir/resources/main/assets/oc-nashorn/")
-
-}
-
-processResources.dependsOn('uglify')
+processResources.dependsOn('grunt')
 
 processResources {
     // this will ensure that this task is redone when the versions change.
