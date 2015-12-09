@@ -7,8 +7,8 @@ plugins {
 apply plugin: 'scala'
 
 version = "1.0"
-group = "com.pwootage.oc.nashorn"
-archivesBaseName = "oc-nashorn"
+group = "com.pwootage.oc.js"
+archivesBaseName = "oc-js"
 
 minecraft {
     version = "1.8-11.14.4.1563"

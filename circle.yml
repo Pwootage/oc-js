@@ -1,3 +1,11 @@
 machine:
   java:
     version: oraclejdk8
+
+general:
+  artifacts:
+    - "build/libs"
+
+test:
+  post:
+    - "./gradlew assemble"
