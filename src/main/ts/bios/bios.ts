@@ -1,4 +1,4 @@
-var $bios:BiosAPI;
+var $bios:BiosApi;
 
 var __bios__ = function (api) {
   //Remove global bios reference
@@ -70,8 +70,56 @@ var __bios__ = function (api) {
     }
   }
 
-  class BiosAPIImpl implements BiosAPI {
+  class BiosComputerApiImpl implements BiosComputerApi {
+    signal():Signal {
+      let sig:Signal = api.computer.signal();
+      if (sig) {
+        return {
+          name: sig.name,
+          args: $bios.javaArrayToList(sig.args)
+        }
+      } else {
+        return null;
+      }
+    }
+
+    sleep(time:number):void {
+      api.computer.sleep(time);
+    }
+
+    address():string {
+      return api.computer.address();
+    }
+
+    tmpAddress():string {
+      return api.computer.tmpAddress();
+    }
+
+    freeMemory():number {
+      return api.computer.freeMemory();
+    }
+
+    totalMemory():number {
+      return api.computer.totalMemory();
+    }
+
+    energy():number {
+      return api.computer.energy();
+    }
+
+    maxEnergy():number {
+      return api.computer.maxEnergy();
+    }
+
+    uptime():number {
+      return api.computer.uptime();
+    }
+
+  }
+
+  class BiosApiImpl implements BiosApi {
     component = new BiosComponentApiImpl();
+    computer = new BiosComputerApiImpl();
 
     crash(msg:string):void {
       let gpu:GPUComponent = $bios.component.first('gpu');
@@ -96,7 +144,7 @@ var __bios__ = function (api) {
     }
   }
 
-  $bios = new BiosAPIImpl();
+  $bios = new BiosApiImpl();
 
   let eeprom:EEPROMComponentAPI = $bios.component.first("eeprom");
 

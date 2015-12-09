@@ -2,7 +2,7 @@ package com.pwootage.oc.js.api
 
 import java.util
 
-import com.pwootage.oc.js.OCSignalHandler
+import com.pwootage.oc.js.{JSUtils, OCSignalHandler}
 import li.cil.oc.api.machine.Machine
 import li.cil.oc.api.network.Connector
 
@@ -16,13 +16,15 @@ class JSComputerApi(machine: Machine, sync: OCSignalHandler) {
     sync.pull() match {
       case Some(x) => Map(
         "name" -> x.name(),
-        "args" -> x.args()
+        "args" -> JSUtils.scalaToJS(x.args())
       )
       case None => null
     }
   }
 
   //TODO: Push signal!
+
+  def sleep(time:Double) = Thread.sleep((time * 1000).toLong)
 
   def address():String = machine.node().address()
 

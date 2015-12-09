@@ -1,7 +1,8 @@
-declare var $bios: BiosAPI;
+declare var $bios: BiosApi;
 
-interface BiosAPI {
+interface BiosApi {
   component:BiosComponentApi;
+  computer:BiosComputerApi;
 
   /** Compiles the script passed as a string */
   compile(script:string):any;
@@ -22,6 +23,18 @@ interface BiosComponentApi {
   first(type:string):any
 }
 
+interface BiosComputerApi {
+  signal():Signal
+  sleep(time:number):void
+  address():string
+  tmpAddress():string
+  freeMemory():number
+  totalMemory():number
+  energy():number
+  maxEnergy():number
+  uptime():number
+}
+
 interface ComponentInfo {
   uuid:string;
   type:string;
@@ -34,5 +47,10 @@ interface ComponentMethodInfo {
   getter:boolean;
   setter:boolean;
   doc:string;
+}
+
+interface Signal {
+  name:string;
+  args:any[];
 }
 

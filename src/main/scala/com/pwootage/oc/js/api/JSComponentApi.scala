@@ -3,7 +3,7 @@ package com.pwootage.oc.js.api
 import java.nio.charset.StandardCharsets
 import java.util
 
-import com.pwootage.oc.js.AsyncMethodCaller
+import com.pwootage.oc.js.{JSUtils, AsyncMethodCaller}
 import li.cil.oc.api.machine.{LimitReachedException, Machine}
 import li.cil.oc.api.network.Component
 
@@ -39,16 +39,7 @@ class JSComponentApi(machine: Machine, sync: AsyncMethodCaller) {
           Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10 seconds)
       }
     }
-    scalaToJS(invokeResult)
-  }
-
-  def scalaToJS(invokeResult: Array[AnyRef]): Array[AnyRef] = {
-    def conv(v: AnyRef) = v match {
-      case a: Array[Byte] => new Predef.String(a, StandardCharsets.UTF_8)
-      case v: ScalaNumber => Array(v.underlying())
-      case x => x
-    }
-    invokeResult.map(conv)
+    JSUtils.scalaToJS(invokeResult)
   }
 
   def doc(address: String, method: String): String = withComponent(address) { comp =>
