@@ -4,6 +4,7 @@ import java.util
 
 import com.pwootage.oc.js.OCSignalHandler
 import li.cil.oc.api.machine.Machine
+import li.cil.oc.api.network.Connector
 
 import scala.collection.JavaConversions._
 
@@ -20,4 +21,23 @@ class JSComputerApi(machine: Machine, sync: OCSignalHandler) {
       case None => null
     }
   }
+
+  //TODO: Push signal!
+
+  def address():String = machine.node().address()
+
+  def tmpAddress():String = machine.tmpAddress()
+
+  // THE MEMORY IS A LIE
+  def freeMemory():Int = 2 * 1024 * 1024
+
+  def totalMemory():Int = 4 * 1024 * 1024
+
+  def energy():Double = machine.node.asInstanceOf[Connector].globalBuffer
+
+  def maxEnergy():Double = machine.node.asInstanceOf[Connector].globalBufferSize
+
+  def uptime():Double = machine.upTime()
+
+  //TODO: Handle users eventually
 }

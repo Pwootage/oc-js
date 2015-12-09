@@ -6,13 +6,13 @@ module.exports = function(grunt) {
     ts: {
       main: {
         options: {
-          module: "commonjs",
-          target: "es5",
-          rootDir: "src/main/ts",
+          module: 'commonjs',
+          target: 'es5',
+          rootDir: 'src/main/ts',
           sourceMap: false
         },
-        src: ["src/main/ts/**/*.ts"],
-        outDir: "build/ts"
+        src: ['src/main/ts/**/*.ts'],
+        outDir: 'build/ts'
       }
     },
     uglify: {

@@ -5,8 +5,8 @@ var __bios__ = function (api) {
   __bios__ = null;
 
   class BiosComponentApiImpl implements BiosComponentApi {
-    list(filter?:string):{ [key:string]:string } {
-      return api.component.list(filter || "");
+    list(filter?:string):ComponentInfo[] {
+      return <ComponentInfo[]>$bios.javaArrayToList(api.component.list(filter || ""));
     }
 
     invoke(address:string, name:string, ...args:any[]):any|any[] {
@@ -40,17 +40,20 @@ var __bios__ = function (api) {
       });
       for (let name in methods) {
         let method = methods[name];
+        let g = (n) => () => this.invoke.apply(this, [address, n]);
+        let s = (n, v) => this.invoke.apply(this, [address, n, v]);
         if (method.getter || method.setter) {
           Object.defineProperty(res, method.name, {
             enumerable: true,
-            "get": method.getter ? ((n) => api.component.invoke(address, n, [])).bind(this, method.name) : null,
-            "set": method.setter ? ((n, v) => api.component.invoke(address, n, [v])).bind(this, method.name) : null
+            "get": method.getter ? g.bind(this, method.name) : null,
+            "set": method.setter ? s.bind(this, method.name) : null
           });
         } else {
+          let i = (n, ...args) => this.invoke.apply(this, [address, n].concat(args));
           Object.defineProperty(res, method.name, {
             enumerable: true,
             writable: false,
-            value: ((n, ...args) => api.component.invoke(address, n, args)).bind(this, method.name)
+            value: i.bind(this, method.name)
           });
         }
       }
@@ -58,13 +61,7 @@ var __bios__ = function (api) {
     }
 
     first(type:string):any {
-      let components = $bios.component.list(type);
-      let address;
-      for (let k in components) {
-        address = k;
-        break;
-      }
-
+      let address = $bios.component.list(type)[0].uuid;
       if (!address) {
         return null;
       } else {
@@ -88,15 +85,25 @@ var __bios__ = function (api) {
     compile(script:string):any {
       return api.bios.compile(script);
     }
+
+    javaArrayToList<T>(arr:T[]):T[] {
+      let res = [];
+      for (let i = 0; i < arr.length; i++) {
+        res.push(arr[i]);
+      }
+      api.bios.log('res' + res);
+      return res;
+    }
   }
 
   $bios = new BiosAPIImpl();
 
-  let eeprom: EEPROMComponentAPI = $bios.component.first("eeprom");
+  let eeprom:EEPROMComponentAPI = $bios.component.first("eeprom");
 
   if (!eeprom) {
     $bios.crash('No eeprom!');
   } else {
+    api.bios.log('FS' + $bios.component.list('filesystem'));
     $bios.compile(eeprom.get());
   }
 };
