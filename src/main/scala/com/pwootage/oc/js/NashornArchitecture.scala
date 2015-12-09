@@ -71,7 +71,7 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
   override def runSynchronized(): Unit = {
     try {
       if (executionThread.runSyncMethodCaller.outstandingSync) {
-        println("Sync call (synchronized)")
+        //println("Sync call (synchronized)")
         executionThread.runSyncMethodCaller.executeSync()
       }
     } catch {
@@ -107,14 +107,14 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     try {
       if (isSynchronizedReturn) {
-        println("Sync return (threaded)")
+        //println("Sync return (threaded)")
         //Trigger resume of javascript thread
         executionThread.runSyncMethodCaller.resolveSync()
         //Continue on our way
         new ExecutionResult.Sleep(1)
       } else {
         if (executionThread.runSyncMethodCaller.outstandingSync) {
-          println("Sync call (threaded)")
+          //println("Sync call (threaded)")
           new ExecutionResult.SynchronizedCall
         } else {
           if (!executionThread.signalHandler.push(machine.popSignal())) {

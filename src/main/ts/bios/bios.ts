@@ -139,7 +139,6 @@ var __bios__ = function (api) {
       for (let i = 0; i < arr.length; i++) {
         res.push(arr[i]);
       }
-      api.bios.log('res' + res);
       return res;
     }
   }
@@ -151,7 +150,6 @@ var __bios__ = function (api) {
   if (!eeprom) {
     $bios.crash('No eeprom!');
   } else {
-    api.bios.log('FS' + $bios.component.list('filesystem'));
     $bios.compile(eeprom.get());
   }
 };
