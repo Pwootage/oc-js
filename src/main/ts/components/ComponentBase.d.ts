@@ -1,3 +1,0 @@
-interface ComponentBase {
-  uuid:string;
-}
