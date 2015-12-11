@@ -7,24 +7,21 @@
 
 import ScreenComponent = components.ScreenComponent;
 import GPUComponent = components.GPUComponent;
-var module:Module;
+var exports:any;
 var require:(file:string)=>any;
 
 (function () {
-
-  //Init module for the code below
-  module = {
-    exports: null
-  };
   //Load the require() function
-  require = (function () {
+  (function () {
     let handle = $bios.bootFS.open('/usr/kernel/require.js', 'r');
     let src = '';
     let read:string;
     while (read = $bios.bootFS.read(handle, 512)) src += read;
     $bios.bootFS.close(handle);
-    return $bios.compile('requre.js', src);
+    return $bios.compile('require.js', src);
   })();
+  require = exports;
+  exports = null;
 
   let gpu:GPUComponent = $bios.component.first('gpu');
   let screen:ScreenComponent = $bios.component.first('screen');

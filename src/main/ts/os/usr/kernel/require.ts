@@ -14,7 +14,7 @@
   }
 
   function loadFileFromBiosFS(path:string) {
-    let handle = $bios.bootFS.open('/usr/kernel/require.js', 'r');
+    let handle = $bios.bootFS.open(path, 'r');
     let src = '';
     let read:string;
     while (read = $bios.bootFS.read(handle, 512)) src += read;
@@ -30,5 +30,5 @@
 
   }
 
-  module.exports = require;
+  exports = require;
 })();

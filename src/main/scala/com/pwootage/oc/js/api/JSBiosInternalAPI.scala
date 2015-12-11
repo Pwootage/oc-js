@@ -16,7 +16,7 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
   }
 
   def compile(name: String, script: String): AnyRef = try scriptEngine.eval(script) catch {
-    case e: ScriptException => throw new ScriptException(e.getMessage, name, e.getLineNumber, e.getColumnNumber)
+    case e: ScriptException => throw new ScriptException(e.getMessage.replaceAll(" ?in <eval> at line number [0-9]+", ""), name, e.getLineNumber, e.getColumnNumber)
     case e: Throwable => throw e
   }
 }
