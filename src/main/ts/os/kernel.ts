@@ -23,7 +23,7 @@ var require:(file:string)=>any;
     let read:string;
     while (read = $bios.bootFS.read(handle, 512)) src += read;
     $bios.bootFS.close(handle);
-    return $bios.compile(src);
+    return $bios.compile('requre.js', src);
   })();
 
   let gpu:GPUComponent = $bios.component.first('gpu');
@@ -33,6 +33,7 @@ var require:(file:string)=>any;
   gpu.setForeground(0xFFFFFF);
   let size = gpu.getResolution();
   gpu.fill(1, 1, size[0] + 1, size[1] + 1, ' ');
+  gpu.set(1, 1, 'Hello, Minecraft!');
 
   while (true) {
     let sig = $bios.computer.signal();

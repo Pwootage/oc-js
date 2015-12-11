@@ -9,7 +9,7 @@ declare module bios {
     bootFS:FilesystemComponentAPI;
 
     /** Compiles the script passed as a string */
-    compile(script:string):any;
+    compile(filename:string, script:string):any;
 
     /** Does not return. Crashes the machine! */
     crash(msg:string):void;

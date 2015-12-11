@@ -42,7 +42,7 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
           override def exposeToScripts(s: String): Boolean = s.startsWith("com.pwootage.oc.nashorn.api")
         })
       //mainEngine.getContext.setWriter(new OutputStreamWriter(System.out))
-      val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc/js/bios/bios.js"))
+      val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc-js/bios/bios.js"))
       //Load kernel
       mainEngine.eval(kernelReader)
 

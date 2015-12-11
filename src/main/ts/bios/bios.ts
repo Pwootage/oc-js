@@ -137,8 +137,8 @@ var __bios__ = function (api) {
       api.bios.crash(msg);
     }
 
-    compile(script:string):any {
-      return api.bios.compile(script);
+    compile(filename:string, script:string):any {
+      return api.bios.compile(filename, script);
     }
 
     javaArrayToList<T>(arr:T[]):T[] {
@@ -157,6 +157,6 @@ var __bios__ = function (api) {
   if (!eeprom) {
     $bios.crash('No eeprom!');
   } else {
-    $bios.compile(eeprom.get());
+    $bios.compile('eeprom', eeprom.get());
   }
 };

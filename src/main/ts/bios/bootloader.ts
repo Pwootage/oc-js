@@ -25,5 +25,5 @@ import FilesystemComponentAPI = components.FilesystemComponentAPI;
   let read:string;
   while (read = fs.read(handle, 512)) kernel += read;
   fs.close(handle);
-  $bios.compile(kernel);
+  $bios.compile('kernel.js', kernel);
 })();

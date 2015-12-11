@@ -11,10 +11,10 @@ class File {
   handle:number;
 }
 
-class FileSystem {
+export class FileSystem {
   open(path:string):File {
     return new File(0);
   }
 }
 
-export = new FileSystem();
+export var fs = new FileSystem();

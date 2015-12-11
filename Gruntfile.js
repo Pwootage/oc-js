@@ -27,7 +27,7 @@ module.exports = function(grunt) {
           expand: true,
           cwd: 'build/ts',
           src: '**/*.js',
-          dest: 'src/main/resources/assets/oc/js/'
+          dest: 'src/main/resources/assets/oc-js/'
         }]
       }
     },
