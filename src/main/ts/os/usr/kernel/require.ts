@@ -30,5 +30,5 @@
 
   }
 
-  exports = require;
+    exports = require;
 })();

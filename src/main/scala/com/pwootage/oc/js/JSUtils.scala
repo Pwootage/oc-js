@@ -16,4 +16,15 @@ object JSUtils {
       }
       invokeResult.map(conv)
   }
+
+  def jsToJava(params: Array[AnyRef]): Array[AnyRef] = params match {
+    case null => null
+    case _ =>
+      def conv(v: AnyRef) = v match {
+        case null => null
+        case a: String => a.getBytes(StandardCharsets.UTF_8)
+        case x => x
+      }
+      params.map(conv)
+  }
 }

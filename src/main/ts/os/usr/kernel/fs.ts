@@ -13,8 +13,12 @@ class File {
       this.fs.close(this.handle);
   }
 
-  read(count?:number) {
-    this.fs.read(this.handle, count || Math.pow(2, 16))
+  read(count?:number):string {
+    return this.fs.read(this.handle, count || Math.pow(2, 16));
+  }
+
+  write(data:string) {
+    this.fs.write(this.handle, data);
   }
 }
 
