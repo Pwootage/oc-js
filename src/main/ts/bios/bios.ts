@@ -3,11 +3,10 @@
 ///ts:ref=Components.d.ts
 /// <reference path="../components/Components.d.ts"/> ///ts:ref:generated
 
-var $bios:bios.BiosApi;
-
-var __bios__ = function (api) {
+global.__bios__ = function (api) {
   //Remove global bios reference
-  __bios__ = null;
+  global.__bios__ = null;
+  delete global.__bios__;
 
   class BiosComponentApiImpl implements bios.BiosComponentApi {
     list(filter?:string):bios.ComponentInfo[] {
@@ -150,7 +149,7 @@ var __bios__ = function (api) {
     }
   }
 
-  $bios = new BiosApiImpl();
+  global.$bios = new BiosApiImpl();
 
   let eeprom:components.EEPROMComponentAPI = $bios.component.first("eeprom");
 

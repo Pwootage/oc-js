@@ -2,10 +2,10 @@ package com.pwootage.oc.js
 
 import java.io.{OutputStreamWriter, InputStreamReader}
 import java.lang.Iterable
-import javax.script.{Invocable, ScriptEngine}
+import javax.script.{ScriptContext, Invocable, ScriptEngine}
 
 import com.pwootage.oc.js.api.{JSComputerApi, JSBiosInternalAPI, JSComponentApi}
-import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
+import jdk.nashorn.api.scripting.{NashornScriptEngine, ClassFilter, NashornScriptEngineFactory}
 import li.cil.oc.api.machine.ExecutionResult.SynchronizedCall
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
 import net.minecraft.item.ItemStack
@@ -41,10 +41,31 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
         new ClassFilter {
           override def exposeToScripts(s: String): Boolean = s.startsWith("com.pwootage.oc.nashorn.api")
         })
-      //mainEngine.getContext.setWriter(new OutputStreamWriter(System.out))
-      val kernelReader = new InputStreamReader(classOf[NashornArchitecture].getResourceAsStream("/assets/oc-js/bios/bios.js"))
-      //Load kernel
-      mainEngine.eval(kernelReader)
+      //Define 'glal' object
+      mainEngine.eval("var global = this;")
+      ///Delete a bunch of crap
+      val bindings = mainEngine.getBindings(ScriptContext.ENGINE_SCOPE)
+      val keys = bindings.keySet()
+      bindings.remove("load")
+      bindings.remove("loadWithNewGlobal")
+      bindings.remove("print")
+      bindings.remove("printf")
+      bindings.remove("sprintf")
+      bindings.remove("println")
+      bindings.remove("exit") //Seriously, Nashorn? Seriously?
+      bindings.remove("quit")
+      bindings.remove("engine")
+      bindings.remove("context")
+      bindings.remove("factory")
+      //The remove doesn't really work for everything, so we do this too
+      //They show up as null (not undefined) but arn't accessible
+      bindings.put("engine", null)
+      bindings.put("context", null)
+      bindings.put("factory", null)
+      bindings.put("arguments", null)
+
+      //Load bios
+      mainEngine.eval(StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js"))
 
       val bios = new util.HashMap[String, Object]()
       executionThread = new NashornExecutionThread(machine, mainEngine, se => se.asInstanceOf[Invocable].invokeFunction("__bios__", bios))

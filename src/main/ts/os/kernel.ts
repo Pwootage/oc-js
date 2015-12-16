@@ -7,10 +7,9 @@
 
 import ScreenComponent = components.ScreenComponent;
 import GPUComponent = components.GPUComponent;
-var exports:any;
-var require:(file:string)=>any;
 
 (function () {
+  global.exports = {};
   //Load the require() function
   (function () {
     let handle = $bios.bootFS.open('/usr/kernel/require.js', 'r');
@@ -20,8 +19,8 @@ var require:(file:string)=>any;
     $bios.bootFS.close(handle);
     return $bios.compile('require.js', src);
   })();
-  require = exports;
-  exports = null;
+  global.require = exports;
+  global.exports = {};
 
   let gpu:GPUComponent = $bios.component.first('gpu');
   let screen:ScreenComponent = $bios.component.first('screen');
@@ -31,6 +30,16 @@ var require:(file:string)=>any;
   let size = gpu.getResolution();
   gpu.fill(1, 1, size[0] + 1, size[1] + 1, ' ');
   gpu.set(1, 1, 'Hello, Minecraft!');
+
+  for (let i in global) {
+    gpu.copy(1, 1, size[0] + 1, size[1], 0, 1);
+    gpu.fill(1, 1, size[0] + 1, 1, ' ');
+    gpu.set(1, 1, i + ':' + global[i]);
+  }
+
+  gpu.copy(1, 1, size[0] + 1, size[1], 0, 1);
+  gpu.fill(1, 1, size[0] + 1, 1, ' ');
+  gpu.set(1, 1, 'eng:' + global.engine + ":" + global.context + ":" + global.JSAdapter + ":" + global.jsadapter);
 
   while (true) {
     let sig = $bios.computer.signal();
