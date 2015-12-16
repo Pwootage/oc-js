@@ -1,9 +1,8 @@
 package com.pwootage.oc.js.api
 
-import java.nio.charset.StandardCharsets
 import java.util
 
-import com.pwootage.oc.js.{JSUtils, AsyncMethodCaller}
+import com.pwootage.oc.js.{AsyncMethodCaller, JSUtils}
 import li.cil.oc.api.machine.{LimitReachedException, Machine}
 import li.cil.oc.api.network.Component
 
@@ -11,7 +10,6 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.math.ScalaNumber
 
 class JSComponentApi(machine: Machine, sync: AsyncMethodCaller, connectedFuture: Future[Unit]) {
   def list(name: String): util.List[util.Map[String, String]] = connected { () =>
