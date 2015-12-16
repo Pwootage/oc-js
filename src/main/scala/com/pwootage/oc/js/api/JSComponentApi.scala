@@ -13,30 +13,30 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.math.ScalaNumber
 
-class JSComponentApi(machine: Machine, sync: AsyncMethodCaller) {
-  def list(name: String): util.List[util.Map[String, String]] = machine.components.synchronized {
-    machine.components().filter(t => t._2.contains(name)).map(t => Map(
-      "uuid" -> t._1,
-      "type" -> t._2
-    ).asJava).toList.asJava
+class JSComponentApi(machine: Machine, sync: AsyncMethodCaller, connectedFuture: Future[Unit]) {
+  def list(name: String): util.List[util.Map[String, String]] = connected { () =>
+    machine.components.synchronized {
+      machine.components().filter(t => t._2.contains(name)).map(t => Map(
+        "uuid" -> t._1,
+        "type" -> t._2
+      ).asJava).toList.asJava
+    }
   }
 
   def invoke(address: String, method: String, args: Array[AnyRef]): Array[AnyRef] = withComponent(address) { comp =>
     val m = machine.methods(comp.host).get(method)
-    val invokeResult = if (m == null) null
-    else {
-      var res: Option[Array[AnyRef]] = None
+    val invokeResult: Array[AnyRef] = if (m == null) {
+      null
+    } else {
       if (m.direct()) {
-        try res = Some(machine.invoke(address, method, args)) catch {
-          case e: LimitReachedException => //Ignore and call sync
+        try machine.invoke(address, method, args) catch {
+          case e: LimitReachedException =>
+          //Sync call
+            Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10.seconds)
           case e: Throwable => throw e
         }
-      }
-      res match {
-        case Some(x) => x
-        case None =>
-          //Sync call
-          Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10 seconds)
+      } else {
+        Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10.seconds)
       }
     }
     JSUtils.scalaToJS(invokeResult)
@@ -60,14 +60,23 @@ class JSComponentApi(machine: Machine, sync: AsyncMethodCaller) {
     }).toMap.asJava
   }
 
-  def `type`(address: String): String = machine.components.synchronized {
-    machine.components().get(address)
+  def `type`(address: String): String = connected { () =>
+    machine.components.synchronized {
+      machine.components().get(address)
+    }
   }
 
-  private def withComponent[T](address: String)(f: (Component) => T): T = Option(machine.node.network.node(address)) match {
-    case Some(component: Component) if component.canBeSeenFrom(machine.node) || component == machine.node =>
-      f(component)
-    case _ =>
-      null.asInstanceOf[T] //eew
+  private def withComponent[T](address: String)(f: (Component) => T): T = connected { () =>
+    Option(machine.node.network.node(address)) match {
+      case Some(component: Component) if component.canBeSeenFrom(machine.node) || component == machine.node =>
+        f(component)
+      case _ =>
+        null.asInstanceOf[T] //eew
+    }
+  }
+
+  private def connected[T](fn: () => T) = {
+    if (!connectedFuture.isCompleted) Await.result(connectedFuture, 10.seconds)
+    fn()
   }
 }

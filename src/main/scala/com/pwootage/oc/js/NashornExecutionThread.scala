@@ -10,11 +10,13 @@ import scala.concurrent.Promise
 
 class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngine) => Unit) extends Thread {
   private var _jsRunning = true
+  private var _started = false
   private var _exception: Option[Throwable] = None
   val runSyncMethodCaller = new AsyncMethodCaller
   val signalHandler = new OCSignalHandler
 
   override def run(): Unit = {
+    _started = true;
     try r(se) catch {
       case e: Throwable => _exception = Some(e)
     } finally {
@@ -39,6 +41,8 @@ class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngin
     * @return true if javascript is still running
     */
   def jsRunning = _jsRunning
+
+  def started = _started
 
   def exception = _exception
 

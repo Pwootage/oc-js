@@ -1,19 +1,16 @@
 package com.pwootage.oc.js
 
-import java.io.{OutputStreamWriter, InputStreamReader}
 import java.lang.Iterable
-import javax.script.{ScriptContext, Invocable, ScriptEngine}
+import java.util
+import javax.script.{Invocable, ScriptContext, ScriptEngine}
 
-import com.pwootage.oc.js.api.{JSComputerApi, JSBiosInternalAPI, JSComponentApi}
-import jdk.nashorn.api.scripting.{NashornScriptEngine, ClassFilter, NashornScriptEngineFactory}
-import li.cil.oc.api.machine.ExecutionResult.SynchronizedCall
-import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
+import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
+import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
+import li.cil.oc.api.machine.{ExecutionResult, Architecture, Machine}
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
-import java.util
 
 import scala.concurrent._
-import scala.concurrent.duration._
 
 /**
   * Nashorn Arch
@@ -21,6 +18,8 @@ import scala.concurrent.duration._
 @Architecture.Name("ES5 (Nashorn)")
 class NashornArchitecture(val machine: Machine) extends Architecture {
   private var _initialized = false
+  private var _started = false
+  private var connected: Promise[Unit] = Promise()
 
   private var sem: NashornScriptEngineFactory = null
   private var mainEngine: ScriptEngine = null
@@ -29,11 +28,18 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
   override def isInitialized: Boolean = _initialized
 
   override def onConnect(): Unit = {
+    connected.synchronized {
+      if (!connected.isCompleted) connected.success(Unit)
+    }
   }
 
   override def initialize(): Boolean = {
     try {
       if (_initialized) return _initialized
+      //Check if it's already connected (onConnect doesn't get called, otherwise
+      connected.synchronized {
+        if (!connected.isCompleted && machine.node() != null && machine.node().network() != null) connected.success(Unit)
+      }
 
       sem = new NashornScriptEngineFactory()
       mainEngine = sem.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"),
@@ -45,7 +51,6 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
       mainEngine.eval("var global = this;")
       ///Delete a bunch of crap
       val bindings = mainEngine.getBindings(ScriptContext.ENGINE_SCOPE)
-      val keys = bindings.keySet()
       bindings.remove("load")
       bindings.remove("loadWithNewGlobal")
       bindings.remove("print")
@@ -73,11 +78,10 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
 
       //Setup bios
       bios.put("bios", new JSBiosInternalAPI(machine, mainEngine))
-      bios.put("component", new JSComponentApi(machine, executionThread.runSyncMethodCaller))
+      bios.put("component", new JSComponentApi(machine, executionThread.runSyncMethodCaller, connected.future))
       bios.put("computer", new JSComputerApi(machine, executionThread.signalHandler))
 
-      executionThread.start()
-
+      //thread is started in runThreaded() after it's been connected to the network
       _initialized = true
 
       _initialized
@@ -128,22 +132,29 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     try {
-      if (isSynchronizedReturn) {
-        //println("Sync return (threaded)")
-        //Trigger resume of javascript thread
-        executionThread.runSyncMethodCaller.resolveSync()
-        //Continue on our way
+      if (!connected.isCompleted) {
         new ExecutionResult.Sleep(1)
       } else {
-        if (executionThread.runSyncMethodCaller.outstandingSync) {
-          //println("Sync call (threaded)")
-          new ExecutionResult.SynchronizedCall
-        } else {
-          if (!executionThread.signalHandler.push(machine.popSignal())) {
-            executionThread.beNiceKill()
-            return new ExecutionResult.Error("Javascript not responding; resorted to killing thread - this might be bad!")
-          }
+        if (!executionThread.started) {
+          executionThread.start()
+        }
+        if (isSynchronizedReturn) {
+          //println("Sync return (threaded)")
+          //Trigger resume of javascript thread
+          executionThread.runSyncMethodCaller.resolveSync()
+          //Continue on our way
           new ExecutionResult.Sleep(1)
+        } else {
+          if (executionThread.runSyncMethodCaller.outstandingSync) {
+            //println("Sync call (threaded)")
+            new ExecutionResult.SynchronizedCall
+          } else {
+            if (!executionThread.signalHandler.push(machine.popSignal())) {
+              executionThread.beNiceKill()
+              return new ExecutionResult.Error("Javascript not responding; resorted to killing thread - this might be bad!")
+            }
+            new ExecutionResult.Sleep(1)
+          }
         }
       }
     } catch {
