@@ -1,6 +1,6 @@
 package com.pwootage.oc.js.api
 
-import javax.script.{ScriptException, ScriptEngine}
+import javax.script.{ScriptContext, ScriptException, ScriptEngine}
 
 import com.pwootage.oc.js.OCJS
 import li.cil.oc.api.machine.Machine
@@ -15,7 +15,10 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
     throw new JSExitException("JS Crashed: " + msg)
   }
 
-  def compile(name: String, script: String): AnyRef = try scriptEngine.eval(script) catch {
+  def compile(name: String, script: String): AnyRef = try {
+    scriptEngine.getContext.setAttribute(ScriptEngine.FILENAME, name, ScriptContext.ENGINE_SCOPE)
+    scriptEngine.eval(script)
+  } catch {
     case e: ScriptException => throw new ScriptException(e.getMessage.replaceAll(" ?in <eval> at line number [0-9]+", ""), name, e.getLineNumber, e.getColumnNumber)
     case e: Throwable => throw e
   }

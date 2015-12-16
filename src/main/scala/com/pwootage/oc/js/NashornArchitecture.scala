@@ -65,6 +65,7 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
       bindings.put("arguments", null)
 
       //Load bios
+      mainEngine.getContext.setAttribute(ScriptEngine.FILENAME, "bios.js", ScriptContext.ENGINE_SCOPE)
       mainEngine.eval(StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js"))
 
       val bios = new util.HashMap[String, Object]()
