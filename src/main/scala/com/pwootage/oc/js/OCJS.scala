@@ -3,6 +3,7 @@ package com.pwootage.oc.js
 import java.util.concurrent.Callable
 
 import com.google.common.io.ByteStreams
+import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
 import net.minecraftforge.fml.common.Mod
@@ -29,6 +30,10 @@ object OCJS {
 
   @EventHandler
   def preInit(e: FMLPreInitializationEvent): Unit = {
+    //Pre-load nashorn to save time later
+    log.info("Pre-loading Nashorn...")
+    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
+    log.info("Pre-loaded Nashorn.")
     Machine.add(classOf[NashornArchitecture])
 
     val is = classOf[NashornArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
