@@ -1,7 +1,7 @@
-///ts:ref=Bios.d.ts
-/// <reference path="./Bios.d.ts"/> ///ts:ref:generated
-///ts:ref=Components.d.ts
-/// <reference path="../components/Components.d.ts"/> ///ts:ref:generated
+///ts:ref=bios.d.ts
+/// <reference path="./bios.d.ts"/> ///ts:ref:generated
+///ts:ref=component.d.ts
+/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
 
 global.__bios__ = function (api) {
   //Remove global bios reference
@@ -9,16 +9,31 @@ global.__bios__ = function (api) {
   delete global.__bios__;
 
   class BiosComponentApiImpl implements bios.BiosComponentApi {
-    list(filter?:string):bios.ComponentInfo[] {
-      return <bios.ComponentInfo[]>$bios.javaArrayToList(api.component.list(filter || ""));
+    list(filter?:string|RegExp):bios.ComponentInfo[] {
+      let arr = <bios.ComponentInfo[]>$bios.javaArrayToList(api.component.list(''));
+      if (filter) {
+        if (filter instanceof RegExp) {
+          return arr.filter(v => !!v.type.match(filter));
+        } else {
+          return arr.filter(v => v.type === filter);
+        }
+      } else {
+        return arr;
+      }
     }
 
     invoke(address:string, name:string, ...args:any[]):any|any[] {
-      let res:any[] = api.component.invoke(address, name, args);
-      if (res && res.length === 1) {
-        return res[0];
-      } else {
-        return res;
+      try {
+        let res:any[] = api.component.invoke(address, name, args);
+        if (res && res.length === 1) {
+          return res[0];
+        } else if (res) {
+          return $bios.javaArrayToList(res);
+        } else {
+          return res;
+        }
+      } catch (e) {
+        throw new Error(`Error invoking ${name}: ${e.message}`);
       }
     }
 
@@ -125,10 +140,10 @@ global.__bios__ = function (api) {
     component = new BiosComponentApiImpl();
     computer = new BiosComputerApiImpl();
     //Set by the bootloader
-    bootFS:components.FilesystemComponentAPI;
+    bootFS:component.FilesystemComponentAPI;
 
     crash(msg:string):void {
-      let gpu:components.GPUComponent = $bios.component.first('gpu');
+      let gpu:component.GPUComponent = $bios.component.first('gpu');
       let screen = $bios.component.first('screen');
       if (gpu && screen) {
         gpu.bind(screen.uuid);
@@ -138,6 +153,10 @@ global.__bios__ = function (api) {
 
     compile(filename:string, script:string):any {
       return api.bios.compile(filename, script);
+    }
+
+    log(message:string) {
+      api.bios.log(message);
     }
 
     javaArrayToList<T>(arr:T[]):T[] {
@@ -151,7 +170,7 @@ global.__bios__ = function (api) {
 
   global.$bios = new BiosApiImpl();
 
-  let eeprom:components.EEPROMComponentAPI = $bios.component.first("eeprom");
+  let eeprom:component.EEPROMComponentAPI = $bios.component.first("eeprom");
 
   if (!eeprom) {
     $bios.crash('No eeprom!');

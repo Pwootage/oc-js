@@ -1,10 +1,11 @@
 package com.pwootage.oc.js
 
 import java.io.Reader
-import javax.script.{Invocable, ScriptContext, ScriptEngine}
+import javax.script.{ScriptException, Invocable, ScriptContext, ScriptEngine}
 
 import com.pwootage.oc.js.api.JSExitException
 import li.cil.oc.api.machine.{Signal, Machine}
+import org.apache.commons.lang3.exception.ExceptionUtils
 
 import scala.concurrent.Promise
 
@@ -27,6 +28,15 @@ class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngin
       case Some(e: RuntimeException) => //Everything's fine
         e.getCause match {
           case e: JSExitException => machine.crash(e.getMessage)
+          case e: ScriptException =>
+            val ex = e.getCause match {
+              case v: ScriptException => v
+              case _ => e;
+            }
+            val regex = """\.js:[0-9]+\)"""
+            val stack = ExceptionUtils.getStackFrames(ex).toSeq.filter(_.contains(".js:")).mkString("\n")
+            machine.crash("JS error: " + e.getMessage + "\n" + stack)
+            OCJS.log.error("Error in JS", e)
           case _: InterruptedException => //Everything's fine (we just want to shut down JS)
           case _ =>
             machine.crash("JS error: " + e.toString)

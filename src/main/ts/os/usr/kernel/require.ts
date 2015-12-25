@@ -1,5 +1,5 @@
-///ts:ref=Bios.d.ts
-/// <reference path="../../../bios/Bios.d.ts"/> ///ts:ref:generated
+///ts:ref=bios.d.ts
+/// <reference path="../../../bios/bios.d.ts"/> ///ts:ref:generated
 ///ts:ref=kernel.d.ts
 /// <reference path="./kernel.d.ts"/> ///ts:ref:generated
 ///ts:ref=fs.ts
@@ -38,7 +38,7 @@ import {FileSystem} from "../lib/fs";
       global.require = this.apply.bind(this);
 
       //load FS
-      this.fsImpl = this.apply('/usr/lib/fs.js');
+      this.fsImpl = this.apply('/usr/lib/fs.js').fs;
       this.loadFile = path => {
         let f = this.fsImpl.open(path);
         let src = '';
@@ -90,9 +90,8 @@ import {FileSystem} from "../lib/fs";
         path: filePath
       });
       $bios.compile(filePath,
-        `(function(global, $bios, require, module){
-        ${src}
-        /**/})(global, $bios, require, ${modJson});`);
+        `(function(global, $bios, require, module){${src}
+        /**/if(module.exports) exports=module.exports;})(global, global.$bios, global.require, ${modJson});`);
     }
   }
 

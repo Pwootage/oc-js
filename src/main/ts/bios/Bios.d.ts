@@ -1,8 +1,11 @@
+///ts:ref=component.d.ts
+/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
+
 declare var $bios:bios.BiosApi;
 declare var global:any;
 
 declare module bios {
-  import FilesystemComponentAPI = components.FilesystemComponentAPI;
+  import FilesystemComponentAPI = component.FilesystemComponentAPI;
   export interface BiosApi {
     component:BiosComponentApi;
     computer:BiosComputerApi;
@@ -13,6 +16,8 @@ declare module bios {
 
     /** Does not return. Crashes the machine! */
     crash(msg:string):void;
+
+    log(msg:string);
 
     javaArrayToList<T>(arr:T[]): T[];
   }

@@ -1,4 +1,4 @@
-declare module components {
+declare module component {
   export interface ComponentBase {
     uuid:string;
   }

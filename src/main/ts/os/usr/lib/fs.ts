@@ -1,14 +1,14 @@
-///ts:ref=Bios.d.ts
-/// <reference path="../../../bios/Bios.d.ts"/> ///ts:ref:generated
-///ts:ref=Components.d.ts
-/// <reference path="../../../components/Components.d.ts"/> ///ts:ref:generated
+///ts:ref=bios.d.ts
+/// <reference path="../../../bios/bios.d.ts"/> ///ts:ref:generated
+///ts:ref=component.d.ts
+/// <reference path="../../../components/component.d.ts"/> ///ts:ref:generated
 
 import * as path from './path';
 
 class File {
   valid:boolean;
 
-  constructor(private fs:components.FilesystemComponentAPI, private handle:number) {
+  constructor(private fs:component.FilesystemComponentAPI, private handle:number) {
   }
 
   close() {
@@ -29,7 +29,7 @@ export class FileSystem {
   PATH = '/usr/bin';
   PWD = '/';
 
-  constructor(private root:components.FilesystemComponentAPI) {
+  constructor(private root:component.FilesystemComponentAPI) {
   }
 
   open(filePath:string, mode:string='r'):File {
@@ -44,11 +44,12 @@ export class FileSystem {
   }
 
   findInPathString(pathString:string, toFind:string):string {
-    if (path.isAbsolute(toFind)) return this.exists(toFind) ? toFind : null;
+    let toFindWithExt = toFind.indexOf('.js') < 0 ? toFind + '.js' : toFind;
+    if (path.isAbsolute(toFindWithExt)) return this.exists(toFindWithExt) ? toFindWithExt : null;
 
     let split = pathString.split(path.delimiter);
     for (let i = 0; i < split.length; i++) {
-      let p = path.resolve(split[i], toFind);
+      let p = path.resolve(split[i], toFindWithExt);
       if (this.exists(p)) return p;
     }
 

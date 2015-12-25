@@ -1,12 +1,12 @@
 ///ts:ref=Bios.d.ts
-/// <reference path="../bios/Bios.d.ts"/> ///ts:ref:generated
-///ts:ref=Components.d.ts
-/// <reference path="../components/Components.d.ts"/> ///ts:ref:generated
+/// No file or directory matched name "Bios.d.ts" ///ts:ref:generated
+///ts:ref=component.d.ts
+/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
 ///ts:ref=kernel.d.ts
 /// <reference path="./usr/kernel/kernel.d.ts"/> ///ts:ref:generated
 
-import ScreenComponent = components.ScreenComponent;
-import GPUComponent = components.GPUComponent;
+import ScreenComponent = component.ScreenComponent;
+import GPUComponent = component.GPUComponent;
 
 (function () {
   //Load the require() function
@@ -19,32 +19,11 @@ import GPUComponent = components.GPUComponent;
     return $bios.compile('require.js', src);
   })();
 
-  let gpu:GPUComponent = $bios.component.first('gpu');
-  let screen:ScreenComponent = $bios.component.first('screen');
-  gpu.bind(screen.uuid);
-  gpu.setBackground(0x000000);
-  gpu.setForeground(0xFFFFFF);
-  let size = gpu.getResolution();
-  gpu.fill(1, 1, size[0] + 1, size[1] + 1, ' ');
-  gpu.set(1, 1, 'Hello, Minecraft!');
-
-  for (let i in global) {
-    gpu.copy(1, 1, size[0] + 1, size[1], 0, 1);
-    gpu.fill(1, 1, size[0] + 1, 1, ' ');
-    gpu.set(1, 1, i + ':' + global[i]);
-  }
-
-  gpu.copy(1, 1, size[0] + 1, size[1], 0, 1);
-  gpu.fill(1, 1, size[0] + 1, 1, ' ');
-  gpu.set(1, 1, 'eng:' + global.engine + ":" + global.context + ":" + global.JSAdapter + ":" + global.jsadapter);
+  //Load the OS
+  let os = require('os');
 
   while (true) {
     let sig = $bios.computer.signal();
-    if (sig) {
-      gpu.copy(1, 1, size[0] + 1, size[1], 0, 1);
-      gpu.fill(1, 1, size[0] + 1, 1, ' ');
-      gpu.set(1, 1, sig.name + ':' + sig.args);
-    }
     $bios.computer.sleep(0.05);
   }
 })();

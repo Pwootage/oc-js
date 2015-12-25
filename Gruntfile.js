@@ -7,6 +7,7 @@ module.exports = function(grunt) {
       main: {
         options: {
           module: 'commonjs',
+          moduleResolution: 'classic',
           target: 'es5',
           rootDir: 'src/main/ts',
           sourceMap: false,

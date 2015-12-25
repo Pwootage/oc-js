@@ -5,6 +5,10 @@ import javax.script.{ScriptContext, ScriptException, ScriptEngine}
 import com.pwootage.oc.js.OCJS
 import li.cil.oc.api.machine.Machine
 
+object CompileCounter {
+  var count = 0
+}
+
 class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
   def log(msg: String): Unit = {
     OCJS.log.error(msg)
@@ -15,11 +19,8 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
     throw new JSExitException("JS Crashed: " + msg)
   }
 
-  def compile(name: String, script: String): AnyRef = try {
+  def compile(name: String, script: String): AnyRef = {
     scriptEngine.getContext.setAttribute(ScriptEngine.FILENAME, name, ScriptContext.ENGINE_SCOPE)
     scriptEngine.eval(script)
-  } catch {
-    case e: ScriptException => throw new ScriptException(e.getMessage.replaceAll(" ?in <eval> at line number [0-9]+", ""), name, e.getLineNumber, e.getColumnNumber)
-    case e: Throwable => throw e
   }
 }
