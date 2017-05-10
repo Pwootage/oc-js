@@ -33,6 +33,9 @@ class NashornArchitecture(val machine: Machine) extends Architecture {
     }
   }
 
+  override def onSignal(): Unit = {
+  }
+
   override def initialize(): Boolean = {
     try {
       if (_initialized) return _initialized

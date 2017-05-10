@@ -1,25 +1,33 @@
 import java.nio.file.Files
 
-plugins {
-    id "net.minecraftforge.gradle.forge" version "2.0.2"
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            name = "forge"
+            url = "http://files.minecraftforge.net/maven"
+        }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
+    }
 }
 
 apply plugin: 'scala'
+apply plugin: 'net.minecraftforge.gradle.forge'
 
 version = "1.0"
 group = "com.pwootage.oc.js"
 archivesBaseName = "oc-js"
 
 minecraft {
-    version = "1.8-11.14.4.1563"
+    version = "1.10.2-12.18.3.2221"
     runDir = "run"
 
     // the mappings can be changed at any time, and must be in the following format.
     // snapshot_YYYYMMDD   snapshot are built nightly.
     // stable_#            stables are built at the discretion of the MCP team.
-    // Use non-default mappings at your own risk. they may not allways work.
-    // simply re-run your setup task after changing the mappings to update your workspace.
-    mappings = "snapshot_20141130"
+    mappings = "snapshot_20160720"
     // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 
     replaceIn "com/pwootage/oc/nashorn/OCNASHORN.scala"
@@ -31,7 +39,7 @@ repositories {
 }
 
 dependencies {
-    compile "li.cil.oc:OpenComputers:MC1.8-1.5.+:api"
+    compile "li.cil.oc:OpenComputers:MC1.10-1.6.+:api"
 }
 
 task grunt(type: Exec) {
