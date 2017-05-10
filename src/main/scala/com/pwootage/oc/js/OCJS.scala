@@ -34,14 +34,15 @@ object OCJS {
     log.info("Pre-loading Nashorn...")
     new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
     log.info("Pre-loaded Nashorn.")
-    Machine.add(classOf[NashornArchitecture])
+//    Machine.add(classOf[NashornArchitecture])
+    Machine.add(classOf[DuktapeArchitecture])
 
-    val is = classOf[NashornArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
+    val is = classOf[DuktapeArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
     Items.registerEEPROM("EEPROM (jsboot)", ByteStreams.toByteArray(is), null, true)
     is.close()
 
     Items.registerFloppy("oc.js", EnumDyeColor.LIGHT_BLUE, new Callable[fs.FileSystem] {
-      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[NashornArchitecture], "oc-js", "os/")
+      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[DuktapeArchitecture], "oc-js", "os/")
     })
   }
 
