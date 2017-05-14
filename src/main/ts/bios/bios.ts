@@ -1,8 +1,3 @@
-///ts:ref=bios.d.ts
-/// <reference path="./bios.d.ts"/> ///ts:ref:generated
-///ts:ref=component.d.ts
-/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
-
 global.__bios__ = function (api) {
   //Remove global bios reference
   global.__bios__ = null;

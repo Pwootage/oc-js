@@ -1,15 +1,15 @@
 package com.pwootage.oc.js.api
 
-import javax.script.{ScriptContext, ScriptException, ScriptEngine}
+import javax.script.{ScriptContext, ScriptEngine, ScriptException}
 
-import com.pwootage.oc.js.OCJS
+import com.pwootage.oc.js.{JSEngine, OCJS}
 import li.cil.oc.api.machine.Machine
 
 object CompileCounter {
   var count = 0
 }
 
-class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
+class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
   def log(msg: String): Unit = {
     OCJS.log.error(msg)
   }
@@ -20,7 +20,6 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: ScriptEngine) {
   }
 
   def compile(name: String, script: String): AnyRef = {
-    scriptEngine.getContext.setAttribute(ScriptEngine.FILENAME, name, ScriptContext.ENGINE_SCOPE)
-    scriptEngine.eval(script)
+    scriptEngine.evalWithName(name, script)
   }
 }

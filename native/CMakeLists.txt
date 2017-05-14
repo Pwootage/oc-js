@@ -3,6 +3,9 @@ project(ocjs)
 
 set(CMAKE_CXX_STANDARD 11)
 
+# Compiler options
+add_compile_options(-O2 -Wall -fstrict-aliasing)
+
 # Libraries
 find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
@@ -29,6 +32,9 @@ include_directories(${JNI_INCLUDE_DIRS} ${GEN_DIR})
 # Source
 set(SOURCE_FILES
         ${JNI_GEN_HEADERS}
+        duk_config.h
+        duktape.h
+        duktape.c
         DuktapeEngine.cpp)
 
 # Build

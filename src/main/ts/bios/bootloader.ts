@@ -1,10 +1,5 @@
-///ts:ref=Components.d.ts
-/// No file or directory matched name "Components.d.ts" ///ts:ref:generated
-///ts:ref=bios.d.ts
-/// <reference path="./bios.d.ts"/> ///ts:ref:generated
-
-import EEPROMComponentAPI = component.EEPROMComponentAPI;
 import FilesystemComponentAPI = component.FilesystemComponentAPI;
+import EEPROMComponentAPI = component.EEPROMComponentAPI;
 
 (function () {
   var eeprom:EEPROMComponentAPI = $bios.component.first('eeprom');

@@ -1,13 +1,3 @@
-///ts:ref=Bios.d.ts
-/// No file or directory matched name "Bios.d.ts" ///ts:ref:generated
-///ts:ref=component.d.ts
-/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
-///ts:ref=kernel.d.ts
-/// <reference path="./usr/kernel/kernel.d.ts"/> ///ts:ref:generated
-
-import ScreenComponent = component.ScreenComponent;
-import GPUComponent = component.GPUComponent;
-
 (function () {
   //Load the require() function
   (function () {

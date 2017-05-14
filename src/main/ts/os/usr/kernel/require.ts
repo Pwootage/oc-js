@@ -1,11 +1,4 @@
-///ts:ref=bios.d.ts
-/// <reference path="../../../bios/bios.d.ts"/> ///ts:ref:generated
-///ts:ref=kernel.d.ts
-/// <reference path="./kernel.d.ts"/> ///ts:ref:generated
-///ts:ref=fs.ts
-/// <reference path="../lib/fs.ts"/> ///ts:ref:generated
-
-//Manually wrapped since it is loaded by something that isn't require()
+//Manually wrapped since it is loaded by something that isn't require() since this is require()
 
 import {FileSystem} from "../lib/fs";
 

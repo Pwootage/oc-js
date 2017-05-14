@@ -1,23 +1,16 @@
-///ts:ref=bios.d.ts
-/// <reference path="../../../bios/bios.d.ts"/> ///ts:ref:generated
-///ts:ref=kernel.d.ts
-/// <reference path="../kernel/kernel.d.ts"/> ///ts:ref:generated
-///ts:ref=component.d.ts
-/// <reference path="../../../components/component.d.ts"/> ///ts:ref:generated
-
-import term = require('term');
-import component = require('component');
+import {Term} from "term";
+import {component, GPUComponent, ScreenComponent} from "component";
 
 class OS {
-  term:term.Term;
+  term: Term;
 
   constructor() {
-    let gpu:component.GPUComponent = component.first('gpu');
-    let screen:component.ScreenComponent = component.first('screen');
+    let gpu: GPUComponent = component.first('gpu');
+    let screen: ScreenComponent = component.first('screen');
     gpu.bind(screen.uuid);
     gpu.fill(0, 0, gpu.getResolution()[0] + 1, gpu.getResolution()[1] + 1, 'X');
 
-    this.term = new term.Term(gpu, {
+    this.term = new Term(gpu, {
       title: 'ocjs'
     });
 

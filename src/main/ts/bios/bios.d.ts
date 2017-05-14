@@ -1,5 +1,5 @@
 ///ts:ref=component.d.ts
-/// <reference path="../components/component.d.ts"/> ///ts:ref:generated
+/// <reference path="../os/usr/lib/components.ts"/> ///ts:ref:generated
 
 declare var $bios:bios.BiosApi;
 declare var global:any;
@@ -17,7 +17,7 @@ declare module bios {
     /** Does not return. Crashes the machine! */
     crash(msg:string):void;
 
-    log(msg:string);
+    log(msg:string):void;
 
     javaArrayToList<T>(arr:T[]): T[];
   }

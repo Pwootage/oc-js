@@ -2,13 +2,13 @@ package com.pwootage.oc.js.api
 
 import java.util
 
-import com.pwootage.oc.js.{JSUtils, OCSignalHandler}
+import com.pwootage.oc.js.{JSEngine, JSUtils, OCSignalHandler}
 import li.cil.oc.api.machine.Machine
 import li.cil.oc.api.network.Connector
 
 import scala.collection.JavaConversions._
 
-class JSComputerApi(machine: Machine, sync: OCSignalHandler) {
+class JSComputerApi(machine: Machine, sync: OCSignalHandler, engine: JSEngine) {
   def signal():util.Map[String, AnyRef] = {
     if (Thread.interrupted()) {
       throw new InterruptedException("Interrupted; assuming javascript should be shut down")
@@ -31,9 +31,9 @@ class JSComputerApi(machine: Machine, sync: OCSignalHandler) {
   def tmpAddress():String = machine.tmpAddress()
 
   // THE MEMORY IS A LIE
-  def freeMemory():Int = 2 * 1024 * 1024
+  def freeMemory():Int = engine.maxMemory - engine.usedMemory
 
-  def totalMemory():Int = 4 * 1024 * 1024
+  def totalMemory():Int = engine.maxMemory
 
   def energy():Double = machine.node.asInstanceOf[Connector].globalBuffer
 

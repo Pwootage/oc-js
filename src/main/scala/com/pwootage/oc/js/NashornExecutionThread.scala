@@ -13,11 +13,9 @@ class NashornExecutionThread(machine: Machine, se: ScriptEngine, r: (ScriptEngin
   private var _jsRunning = true
   private var _started = false
   private var _exception: Option[Throwable] = None
-  val runSyncMethodCaller = new AsyncMethodCaller
-  val signalHandler = new OCSignalHandler
 
   override def run(): Unit = {
-    _started = true;
+    _started = true
     try r(se) catch {
       case e: Throwable => _exception = Some(e)
     } finally {

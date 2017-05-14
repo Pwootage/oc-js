@@ -1,9 +1,4 @@
-///ts:ref=kernel.d.ts
-/// <reference path="../kernel/kernel.d.ts"/> ///ts:ref:generated
-///ts:ref=component.d.ts
-/// <reference path="../../../components/component.d.ts"/> ///ts:ref:generated
-
-import component = require('component');
+import component = require('os/usr/lib/component');
 
 /** Contains config options for a terminal */
 export interface TermConfig {

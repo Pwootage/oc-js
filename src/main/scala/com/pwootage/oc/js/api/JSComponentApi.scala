@@ -2,7 +2,7 @@ package com.pwootage.oc.js.api
 
 import java.util
 
-import com.pwootage.oc.js.{AsyncMethodCaller, JSUtils}
+import com.pwootage.oc.js.{SyncMethodCaller, JSUtils}
 import li.cil.oc.api.machine.{LimitReachedException, Machine}
 import li.cil.oc.api.network.Component
 
@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
 
-class JSComponentApi(machine: Machine, sync: AsyncMethodCaller, connectedFuture: Future[Unit]) {
+class JSComponentApi(machine: Machine, sync: SyncMethodCaller, connectedFuture: Future[Unit]) {
   def list(name: String): util.List[util.Map[String, String]] = connected { () =>
     machine.components.synchronized {
       machine.components().filter(t => t._2.contains(name)).map(t => Map(
@@ -29,8 +29,8 @@ class JSComponentApi(machine: Machine, sync: AsyncMethodCaller, connectedFuture:
       if (m.direct()) {
         try machine.invoke(address, method, args) catch {
           case e: LimitReachedException =>
-          //Sync call
-            Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10.seconds)
+            //Sync call
+            sync.callSync(() => machine.invoke(address, method, args))
           case e: Throwable => throw e
         }
       } else {

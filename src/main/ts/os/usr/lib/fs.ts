@@ -1,8 +1,3 @@
-///ts:ref=bios.d.ts
-/// <reference path="../../../bios/bios.d.ts"/> ///ts:ref:generated
-///ts:ref=component.d.ts
-/// <reference path="../../../components/component.d.ts"/> ///ts:ref:generated
-
 import * as path from './path';
 
 class File {
