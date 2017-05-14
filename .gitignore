@@ -17,5 +17,9 @@ classes
 # JS
 node_modules
 src/main/resources/assets/oc-js/
-.baseDir.ts
+.baseDir.tsW
 .tscache
+
+# Natives
+native/cmake-build-debug
+native/gen/

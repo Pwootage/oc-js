@@ -1,4 +1,3 @@
-// JAVA/SCALA/ETC
 buildscript {
     repositories {
         jcenter()
@@ -11,105 +10,10 @@ buildscript {
         classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
     }
 }
-// NATIVES
-apply plugin: 'cpp'
 
-binaries.all {
-    if (toolChain in Gcc || toolChain in Clang) {
-        if (buildType == buildTypes.release) {
-            cppCompiler.define "NDEBUG"
-        }
-        cppCompiler.define "_REENTRANT"
-//        cppCompiler.define "LUA_USE_LINUX"
-        if (buildType == buildTypes.debug) {
-            cppCompiler.args "-g", "-fno-strict-aliasing"
-        } else {
-            cppCompiler.args "-O2", "-fno-strict-aliasing"
-            linker.args "-s"
-        }
-        tasks.withType(LinkSharedLibrary) {
-            tasks.withType(CppCompile) {
-                includes.from("src/main/headers")
-                includes.from("/usr/lib/jvm/java-8-openjdk/include")
-                includes.from("/usr/lib/jvm/java-8-openjdk/include/linux")
-                includes.from("/usr/lib/jvm/java-8-openjdk-amd64/include")
-                includes.from("/usr/lib/jvm/java-8-openjdk-amd64/include/linux")
-                includes.from("/usr/local/openjdk8/include")
-                includes.from("/usr/local/openjdk8/include/freebsd")
-                includes.from("/Library/Java/JavaVirtualMachines/jdk1.7.0_45.jdk/Contents/Home/include")
-                includes.from("/Library/Java/JavaVirtualMachines/jdk1.7.0_45.jdk/Contents/Home/include/darwin")
-            }
-        }
-    }
-    if (toolChain in VisualCpp) {
-        if (buildType == buildTypes.debug) {
-            cppCompiler.args "/Od", "/Zi", "/MTd"
-            linker.args "/debug"
-        } else {
-            cppCompiler.args "/O2", "/MT"
-        }
-        tasks.withType(LinkSharedLibrary) {
-            tasks.withType(CppCompile) {
-                includes.from("src/main/headers")
-                includes.from("C:/Program Files (x86)/Java/jdk1.7.0_55/include")
-                includes.from("C:/Program Files (x86)/Java/jdk1.7.0_55/include/win32")
-            }
-            if (targetPlatform == platforms.x86) {
-                libs += files("C:/Program Files (x86)/Microsoft SDKs/Windows/v7.1A/Lib/uuid.lib", "C:/Program Files (x86)/Microsoft SDKs/Windows/v7.1A/Lib/kernel32.lib")
-            }
-            if (targetPlatform == platforms.x64) {
-                libs += files("C:/Program Files (x86)/Microsoft SDKs/Windows/v7.1A/Lib/x64/uuid.lib", "C:/Program Files (x86)/Microsoft SDKs/Windows/v7.1A/Lib/x64/kernel32.lib")
-            }
-        }
-    }
-    tasks.withType(CppCompile) {
-        positionIndependentCode = true
-    }
-}
-
-model {
-    components {
-        ocjs(NativeLibrarySpec) {
-//            targetPlatform "x86"
-            targetPlatform "x64"
-//            targetPlatform "arm"
-            sources {
-                cpp {
-                    source {
-                        srcDir "src/main/cpp"
-                        include "**/*.cpp"
-                        include "**/*.c"
-                    }
-                }
-            }
-        }
-    }
-    buildTypes {
-        debug
-        release
-    }
-    platforms {
-//        x86 { architecture "x86" }
-        x64 { architecture "x86_64" }
-        //TODO: ARM
-//        arm { architecture "arm" }
-    }
-    toolChains {
-        gcc(Gcc) {
-//            linker.executable = 'g++'
-//            target('arm') {
-//                linker.executable = 'arm-unknown-linux-gnueabi-g++'
-//                cppCompiler.executable = 'arm-unknown-linux-gnueabi-g++'
-//        }
-        }
-        clang(Clang)
-        visualCpp(VisualCpp)
-    }
-}
-
-//MC
 apply plugin: 'scala'
 apply plugin: 'net.minecraftforge.gradle.forge'
+
 version = "1.0"
 group = "com.pwootage.oc.js"
 archivesBaseName = "oc-js"
@@ -137,22 +41,6 @@ dependencies {
     compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
 }
 
-task grunt(type: Exec) {
-    executable "grunt"
-
-    //Dirty hack because osx/intellij path -.-
-    if (System.getProperty("os.name").toLowerCase().contains("mac")) {
-        if (!System.getenv("PATH").contains("/usr/local/bin")) {
-            executable "/usr/local/bin/node"
-            args "/usr/local/bin/grunt"
-        }
-    }
-
-    args "default"
-}
-
-processResources.dependsOn('grunt')
-
 processResources {
     // this will ensure that this task is redone when the versions change.
     inputs.property "version", project.version
@@ -169,13 +57,11 @@ processResources {
     }
 }
 
-task javah(type: Exec) {
-    executable "javah"
-
-    def classpath = sourceSets.main.output.classesDir
-    args "-classpath", classpath,
-            "-d", "src/main/headers",
-            "com.pwootage.oc.js.DuktapeEngine"
+task natives(type: Exec) {
+    executable "bash"
+    args "native.sh"
 
     dependsOn classes
 }
+
+build.dependsOn("natives")
