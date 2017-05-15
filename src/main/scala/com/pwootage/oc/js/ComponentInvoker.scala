@@ -1,13 +1,15 @@
 package com.pwootage.oc.js
 
-class SyncMethodCaller {
-  private var callToSync: Option[() => Any] = None
-  private var callResult: Option[Any] = None
+import com.pwootage.oc.js.jsvalue.JSValue
+
+class ComponentInvoker {
+  private var callToSync: Option[() => JSValue] = None
+  private var callResult: Option[JSValue] = None
 
   def hasSyncCall: Boolean = this.callToSync.isDefined
   def hasResult: Boolean = this.callResult.isDefined
 
-  def callSync[T](fn: () => T): Unit = {
+  def callSync(fn: () => JSValue): Unit = {
     this.callToSync = Some(fn)
   }
 
@@ -19,7 +21,11 @@ class SyncMethodCaller {
     callToSync = None
   }
 
-  def result(): Option[Any] = {
+  def setResult(v: JSValue): Unit = {
+    callResult = Some(v)
+  }
+
+  def result(): Option[JSValue] = {
     val res = callResult
     callResult = None
     res

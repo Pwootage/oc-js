@@ -4,16 +4,25 @@ declare global {
   var $bios: BiosApi;
   var global: any;
 
-  interface BiosApi {
+  class BiosApi {
     component: BiosComponentApi;
     computer: BiosComputerApi;
     bootFS: FilesystemComponentAPI;
+    Thread: typeof Thread;
+
     /** Compiles the script passed as a string */
     compile(filename: string, script: string): any;
     /** Does not return. Crashes the machine! */
     crash(msg: string): void;
     log(msg: string): void;
     javaArrayToList<T>(arr: T[]): T[];
+  }
+
+  class Thread {
+    constructor(fn: (arg?: any) => any);
+
+    static yeild(arg?: any): any | void;
+    static resume(thread: Thread, v?: any): any | void;
   }
 
   interface BiosComponentApi {

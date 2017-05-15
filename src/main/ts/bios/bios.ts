@@ -40,6 +40,21 @@ global.__bios__ = function (api: RawBiosAPI) {
   global.__bios__ = null;
   delete global.__bios__;
 
+  //Also duktape
+  let duktape: any = global.Duktape;
+  global.Duktape = null;
+
+  // Yielding should only happen in the bios!
+  type BiosYieldType = "invoke" | "sleep";
+  class BiosYield {
+    constructor(public type: BiosYieldType, public arg: number | {
+      address: string,
+      name: string,
+      args: any[]
+    }){
+    }
+  }
+
   class BiosComponentApiImpl implements BiosComponentApi {
     list(filter?: string | RegExp): ComponentInfo[] {
       let arr = $bios.javaArrayToList(api.component.list(''));
@@ -56,14 +71,12 @@ global.__bios__ = function (api: RawBiosAPI) {
 
     invoke(address: string, name: string, ...args: any[]): any | any[] {
       try {
-        let res: any[] = api.component.invoke(address, name, args);
-        if (res && res.length === 1) {
-          return res[0];
-        } else if (res) {
-          return $bios.javaArrayToList(res);
-        } else {
-          return res;
-        }
+        //Have to use co-routine magic here just in case
+        return $bios.Thread.yeild(new BiosYield("invoke", {
+          address: address,
+          name: name,
+          args: args
+        }));
       } catch (e) {
         throw new Error(`Error invoking ${name}: ${e.message}`);
       }
@@ -135,7 +148,7 @@ global.__bios__ = function (api: RawBiosAPI) {
     }
 
     sleep(time: number): void {
-      api.computer.sleep(time);
+      $bios.Thread.yeild(new BiosYield('sleep', time));
     }
 
     address(): string {
@@ -173,6 +186,9 @@ global.__bios__ = function (api: RawBiosAPI) {
     computer = new BiosComputerApiImpl();
     //Set by the bootloader
     bootFS: FilesystemComponentAPI;
+    Thread = duktape.Thread as (typeof Thread);
+
+    kernelThread: Thread;
 
     crash(msg: string): void {
       let gpu: GPUComponent = $bios.component.first('gpu');
@@ -198,15 +214,39 @@ global.__bios__ = function (api: RawBiosAPI) {
       }
       return res;
     }
+
+    // To be called from oc-js only!
+    // TODO: make available only from js (using native code)
+    private __runThreaded__(res?: any): BiosYield {
+      let biosYield = Thread.resume(this.kernelThread, res) as BiosYield;
+      if (biosYield) {
+        return biosYield;
+      } else {
+        this.crash("Invalid kernel yield; Probably crashed or ended execution (no yield)")
+      }
+    }
   }
 
-  global.$bios = new BiosApiImpl();
+  let biosImpl = new BiosApiImpl();
+  global.$bios = biosImpl;
 
   let eeprom: EEPROMComponentAPI = $bios.component.first('eeprom');
 
   if (!eeprom) {
     $bios.crash('No eeprom!');
   } else {
-    $bios.compile('eeprom', eeprom.get());
+    // Load eeprom main
+    let eepromSrc = `
+    (function(){
+      global['__eeprom_main__'] = function() {
+        ${eeprom.get()};
+      };
+    })();`;
+    $bios.compile('eeprom', eepromSrc);
+    let main = global['__eeprom_main__'];
+    delete global['__eeprom_main__'];
+
+    // Set up co-routine
+    biosImpl.kernelThread = new $bios.Thread(main)
   }
 };

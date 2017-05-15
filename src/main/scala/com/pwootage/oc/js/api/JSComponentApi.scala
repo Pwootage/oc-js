@@ -2,7 +2,7 @@ package com.pwootage.oc.js.api
 
 import java.util
 
-import com.pwootage.oc.js.{SyncMethodCaller, JSUtils}
+import com.pwootage.oc.js.{ComponentInvoker, JSUtils}
 import li.cil.oc.api.machine.{LimitReachedException, Machine}
 import li.cil.oc.api.network.Component
 
@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
 
-class JSComponentApi(machine: Machine, sync: SyncMethodCaller, connectedFuture: Future[Unit]) {
+class JSComponentApi(machine: Machine, connectedFuture: Future[Unit]) {
   def list(name: String): util.List[util.Map[String, String]] = connected { () =>
     machine.components.synchronized {
       machine.components().filter(t => t._2.contains(name)).map(t => Map(
@@ -19,25 +19,6 @@ class JSComponentApi(machine: Machine, sync: SyncMethodCaller, connectedFuture: 
         "type" -> t._2
       ).asJava).toList.asJava
     }
-  }
-
-  def invoke(address: String, method: String, args: Array[AnyRef]): Array[AnyRef] = withComponent(address) { comp =>
-    val m = machine.methods(comp.host).get(method)
-    val invokeResult: Array[AnyRef] = if (m == null) {
-      null
-    } else {
-      if (m.direct()) {
-        try machine.invoke(address, method, args) catch {
-          case e: LimitReachedException =>
-            //Sync call
-            sync.callSync(() => machine.invoke(address, method, args))
-          case e: Throwable => throw e
-        }
-      } else {
-        Await.result(sync.callSync(() => machine.invoke(address, method, args)), 10.seconds)
-      }
-    }
-    JSUtils.scalaToJS(invokeResult)
   }
 
   def doc(address: String, method: String): String = withComponent(address) { comp =>

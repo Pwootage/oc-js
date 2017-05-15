@@ -1,5 +1,6 @@
 package com.pwootage.oc.js
 
+import java.nio.file.Paths
 import java.util.concurrent.Callable
 
 import com.google.common.io.ByteStreams
@@ -32,9 +33,15 @@ object OCJS {
   @EventHandler
   def preInit(e: FMLPreInitializationEvent): Unit = {
     //Pre-load nashorn to save time later
-    log.info("Pre-loading Nashorn...")
-    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
-    log.info("Pre-loaded Nashorn.")
+//    log.info("Pre-loading Nashorn...")
+//    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
+//    log.info("Pre-loaded Nashorn.")
+
+    log.info("Loading duktape natives")
+    //TODO: make this work in not, well, dev
+    System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
+    log.info("Loaded duktape natives")
+
 //    Machine.add(classOf[NashornArchitecture])
     Machine.add(classOf[DuktapeArchitecture])
 

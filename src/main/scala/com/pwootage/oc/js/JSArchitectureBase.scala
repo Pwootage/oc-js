@@ -2,15 +2,26 @@ package com.pwootage.oc.js
 
 import java.lang.Iterable
 import java.util
-import javax.script.{Invocable, ScriptContext, ScriptEngine}
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
-import jdk.nashorn.api.scripting.{ClassFilter, NashornScriptEngineFactory}
-import li.cil.oc.api.machine.{Architecture, ExecutionResult, Machine}
+import com.pwootage.oc.js.jsvalue.{JSArray, JSUndefined, JSValue}
+import li.cil.oc.api.Driver
+import li.cil.oc.api.driver.item.Memory
+import li.cil.oc.api.machine.{Architecture, ExecutionResult, LimitReachedException, Machine}
+import li.cil.oc.api.network.Component
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 
+import scala.annotation.tailrec
 import scala.concurrent._
+import scala.concurrent.duration._
+import scala.collection.convert.WrapAsScala._
+
+trait InvokeResult
+
+case class InvokeResultComplete(res: Array[AnyRef]) extends InvokeResult
+
+case class InvokeResultSyncCall(call: () => Array[AnyRef]) extends InvokeResult
 
 /**
   * JS base
@@ -18,11 +29,11 @@ import scala.concurrent._
 abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   private var _initialized = false
   private var _started = false
-  private var connected: Promise[Unit] = Promise()
+  private var connectedPromise: Promise[Unit] = Promise()
 
   private var mainEngine: JSEngine = null
   val signalHandler = new OCSignalHandler
-  private val syncMethodCaller = new SyncMethodCaller
+  private val componentInvoker = new ComponentInvoker
 
   // Methods for subclesses
 
@@ -41,8 +52,8 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   override def isInitialized: Boolean = _initialized
 
   override def onConnect(): Unit = {
-    connected.synchronized {
-      if (!connected.isCompleted) connected.success(Unit)
+    connectedPromise.synchronized {
+      if (!connectedPromise.isCompleted) connectedPromise.success(Unit)
     }
   }
 
@@ -53,8 +64,8 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
     try {
       if (_initialized) return _initialized
       //Check if it's already connected (onConnect doesn't get called, otherwise)
-      connected.synchronized {
-        if (!connected.isCompleted && machine.node() != null && machine.node().network() != null) connected.success(Unit)
+      connectedPromise.synchronized {
+        if (!connectedPromise.isCompleted && machine.node() != null && machine.node().network() != null) connectedPromise.success(Unit)
       }
 
       mainEngine = createEngine()
@@ -68,8 +79,8 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
       //Setup bios
       bios.put("bios", new JSBiosInternalAPI(machine, mainEngine))
-      bios.put("component", new JSComponentApi(machine, syncMethodCaller, connected.future))
-      bios.put("computer", new JSComputerApi(machine, signalHandler))
+      bios.put("component", new JSComponentApi(machine, connectedPromise.future))
+      bios.put("computer", new JSComputerApi(machine, signalHandler, mainEngine))
 
       //thread is started in runThreaded() after it's been connected to the network
       _initialized = true
@@ -81,13 +92,25 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
     }
   }
 
-  override def recomputeMemory(components: Iterable[ItemStack]): Boolean = components.iterator().hasNext
+  override def recomputeMemory(components: java.lang.Iterable[ItemStack]): Boolean = {
+    val memory = math.ceil(memoryInBytes(components) * 1.8).toInt
+    //TODO: allow unlimited memory?
+    if (_initialized) {
+      mainEngine.setMaxMemory(memory)
+    }
+    memory > 0
+  }
+
+  private def memoryInBytes(components: java.lang.Iterable[ItemStack]) = components.foldLeft(0.0)((acc, stack) => acc + (Option(Driver.driverFor(stack)) match {
+    case Some(driver: Memory) => driver.amount(stack) * 1024
+    case _ => 0
+  })).toInt max 0 min 64 * 1024 * 1024 // TODO: 64mb? Sure! Make configurable.
 
   override def runSynchronized(): Unit = {
     try {
-      if (syncMethodCaller.hasSyncCall) {
+      if (componentInvoker.hasSyncCall) {
         println("Sync call (synchronized)")
-        syncMethodCaller.executeSync()
+        componentInvoker.executeSync()
       }
     } catch {
       case e: Throwable =>
@@ -113,34 +136,85 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   }
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
+    @tailrec def executeThreaded(): ExecutionResult = {
+      val jsRunResult = mainEngine.executeThreaded(componentInvoker.result().getOrElse(JSUndefined))
+      val yieldType = jsRunResult.property("type").asString.getOrElse(throw new Exception("RunThreaded did not yield!"))
+      yieldType match {
+        case "sleep" =>
+          val sleepAmount = jsRunResult.property("arg").asDouble
+            .getOrElse(1.0)
+            .toInt
+          new ExecutionResult.Sleep(sleepAmount)
+        case "invoke" =>
+          val address = jsRunResult.property("arg").property("address").asString.getOrElse("<no address passed>")
+          val method = jsRunResult.property("arg").property("method").asString.getOrElse("<no method passed>")
+          val args = jsRunResult.property("arg").property("args").asArray.getOrElse(Array())
+          invoke(address, method, args) match {
+            case x: InvokeResultComplete =>
+              //We yeilded successfully, we can just run again
+              componentInvoker.setResult(JSValue.javaToJsValue(x.res))
+              executeThreaded()
+            case x: InvokeResultSyncCall =>
+              componentInvoker.callSync(() => JSValue.javaToJsValue(x.call))
+              new ExecutionResult.SynchronizedCall
+          }
+      }
+    }
+
     try {
-      if (!connected.isCompleted) {
+      if (!connectedPromise.isCompleted) {
         new ExecutionResult.Sleep(1)
       } else {
         if (!mainEngine.started) {
           mainEngine.start()
         }
-        if (isSynchronizedReturn) {
+        if (!isSynchronizedReturn) {
           println("Sync return (threaded)")
-          mainEngine.executeThreaded(syncMethodCaller.result())
-          new ExecutionResult.Sleep(1)
-        } else {
-          if (syncMethodCaller.hasSyncCall) {
-            println("Sync call (threaded)")
-            new ExecutionResult.SynchronizedCall
-          } else {
-            if (!signalHandler.push(machine.popSignal())) {
-              mainEngine.destroy()
-              return new ExecutionResult.Error("Javascript not responding; resorted to killing engine!")
-            }
-            new ExecutionResult.Sleep(1)
+          if (!signalHandler.push(machine.popSignal())) {
+            mainEngine.destroy()
+            return new ExecutionResult.Error("Javascript not responding; resorted to killing engine!")
           }
         }
+        executeThreaded()
       }
     } catch {
       case e: Throwable =>
         OCJS.log.error("Error in runThreaded", e)
         new ExecutionResult.Error("Error in runThreaded: " + e.toString)
     }
+  }
+
+  private def invoke(address: String, method: String, jsArgs: Array[JSValue]): InvokeResult = withComponent(address) { comp =>
+    val m = machine.methods(comp.host).get(method)
+    if (m == null) {
+      return InvokeResultComplete(Array())
+    } else {
+      val args = jsArgs.flatMap(_.asSimpleJava)
+      if (m.direct()) {
+        val res = try machine.invoke(address, method, args) catch {
+          case e: LimitReachedException =>
+            //Sync call
+            return InvokeResultSyncCall(() => machine.invoke(address, method, args))
+          case e: Throwable => throw e
+        }
+        return InvokeResultComplete(res)
+      } else {
+        return InvokeResultSyncCall(() => machine.invoke(address, method, args))
+      }
+    }
+  }
+
+  private def withComponent[T](address: String)(f: (Component) => T): T = whenConnected { () =>
+    Option(machine.node.network.node(address)) match {
+      case Some(component: Component) if component.canBeSeenFrom(machine.node) || component == machine.node =>
+        f(component)
+      case _ =>
+        null.asInstanceOf[T] //eew
+    }
+  }
+
+  private def whenConnected[T](fn: () => T) = {
+    if (!connectedPromise.isCompleted) Await.result(connectedPromise.future, 10.seconds)
+    fn()
   }
 }

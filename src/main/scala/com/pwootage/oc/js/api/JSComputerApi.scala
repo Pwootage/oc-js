@@ -22,9 +22,7 @@ class JSComputerApi(machine: Machine, sync: OCSignalHandler, engine: JSEngine) {
     }
   }
 
-  //TODO: Push signal!
-
-  def sleep(time: Double) = Thread.sleep((time * 1000).toLong)
+  //TODO: Push signal?
 
   def address(): String = machine.node().address()
 
