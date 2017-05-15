@@ -1,13 +1,7 @@
 package com.pwootage.oc.js.api
 
-import javax.script.{ScriptContext, ScriptEngine, ScriptException}
-
 import com.pwootage.oc.js.{JSEngine, OCJS}
 import li.cil.oc.api.machine.Machine
-
-object CompileCounter {
-  var count = 0
-}
 
 class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
   def log(msg: String): Unit = {

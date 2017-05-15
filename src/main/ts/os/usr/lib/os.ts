@@ -1,5 +1,6 @@
-import {Term} from "term";
-import {component, GPUComponent, ScreenComponent} from "component";
+import {Term} from 'term';
+import {component} from 'component';
+import {GPUComponent, ScreenComponent} from './externalComponents';
 
 class OS {
   term: Term;

@@ -8,20 +8,24 @@
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
     "noImplicitAny": true,
-
-    "outDir": "../resources/assets/oc-js/",
+    "outDir": "../../resources/assets/oc-js/bios/",
 
     "baseUrl": ".",
     "paths": {
       "*": [
-        "bios/*",
-        "components/*",
-        "os/*",
-        "os/usr/lib/*"
+        "*",
+        "usr/lib/*"
       ]
-    }
+    },
+    "lib": ["es5"]
   },
   "exclude": [
+  ],
+  "files": [
+    "bios.ts",
+    "bootloader.ts",
+    "../os/usr/lib/bios.d.ts",
+    "../os/usr/lib/externalComponents.d.ts"
   ],
   "compileOnSave": true,
   "atom": {

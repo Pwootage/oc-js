@@ -1,10 +1,9 @@
-import FilesystemComponentAPI = component.FilesystemComponentAPI;
-import EEPROMComponentAPI = component.EEPROMComponentAPI;
+import {EEPROMComponentAPI, FilesystemComponentAPI} from '../os/usr/lib/externalComponents';
 
 (function () {
-  var eeprom:EEPROMComponentAPI = $bios.component.first('eeprom');
+  var eeprom: EEPROMComponentAPI = $bios.component.first('eeprom');
   let bootAddr = eeprom.getData();
-  let fs:FilesystemComponentAPI = $bios.component.proxy(bootAddr);
+  let fs: FilesystemComponentAPI = $bios.component.proxy(bootAddr);
   if (!fs) {
     fs = $bios.component.list('filesystem')
       .map(v => <FilesystemComponentAPI>$bios.component.proxy(v.uuid))
@@ -17,7 +16,7 @@ import EEPROMComponentAPI = component.EEPROMComponentAPI;
   $bios.bootFS = fs;
   let handle = fs.open('kernel.js', 'r');
   let kernel = '';
-  let read:string;
+  let read: string;
   while (read = fs.read(handle, 512)) kernel += read;
   fs.close(handle);
   $bios.compile('kernel.js', kernel);

@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "allowJs": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "preserveConstEnums": true,
+    "noImplicitAny": true,
+
+    "outDir": "../../resources/assets/oc-js/os/",
+
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "*",
+        "*",
+        "usr/lib/*"
+      ]
+    }
+  },
+  "exclude": [
+  ],
+  "compileOnSave": true,
+  "atom": {
+    "rewriteTsconfig": false
+  }
+}

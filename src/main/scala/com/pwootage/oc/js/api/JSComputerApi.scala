@@ -9,7 +9,7 @@ import li.cil.oc.api.network.Connector
 import scala.collection.JavaConversions._
 
 class JSComputerApi(machine: Machine, sync: OCSignalHandler, engine: JSEngine) {
-  def signal():util.Map[String, AnyRef] = {
+  def signal(): util.Map[String, AnyRef] = {
     if (Thread.interrupted()) {
       throw new InterruptedException("Interrupted; assuming javascript should be shut down")
     }
@@ -24,22 +24,21 @@ class JSComputerApi(machine: Machine, sync: OCSignalHandler, engine: JSEngine) {
 
   //TODO: Push signal!
 
-  def sleep(time:Double) = Thread.sleep((time * 1000).toLong)
+  def sleep(time: Double) = Thread.sleep((time * 1000).toLong)
 
-  def address():String = machine.node().address()
+  def address(): String = machine.node().address()
 
-  def tmpAddress():String = machine.tmpAddress()
+  def tmpAddress(): String = machine.tmpAddress()
 
-  // THE MEMORY IS A LIE
-  def freeMemory():Int = engine.maxMemory - engine.usedMemory
+  def freeMemory(): Int = engine.maxMemory - engine.usedMemory
 
-  def totalMemory():Int = engine.maxMemory
+  def totalMemory(): Int = engine.maxMemory
 
-  def energy():Double = machine.node.asInstanceOf[Connector].globalBuffer
+  def energy(): Double = machine.node.asInstanceOf[Connector].globalBuffer
 
-  def maxEnergy():Double = machine.node.asInstanceOf[Connector].globalBufferSize
+  def maxEnergy(): Double = machine.node.asInstanceOf[Connector].globalBufferSize
 
-  def uptime():Double = machine.upTime()
+  def uptime(): Double = machine.upTime()
 
   //TODO: Handle users eventually
 }

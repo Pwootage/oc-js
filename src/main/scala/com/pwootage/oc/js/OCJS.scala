@@ -3,12 +3,13 @@ package com.pwootage.oc.js
 import java.util.concurrent.Callable
 
 import com.google.common.io.ByteStreams
+import com.pwootage.oc.js.duktape.DuktapeArchitecture
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.Mod.EventHandler
-import net.minecraftforge.fml.common.event.{FMLPostInitializationEvent, FMLInitializationEvent, FMLPreInitializationEvent}
+import net.minecraftforge.fml.common.event.{FMLInitializationEvent, FMLPostInitializationEvent, FMLPreInitializationEvent}
 import org.apache.logging.log4j.LogManager
 
 @Mod(

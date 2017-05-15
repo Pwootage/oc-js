@@ -1,4 +1,4 @@
-//Manually wrapped since it is loaded by something that isn't require() since this is require()
+//Manually wrapped since it is loaded by something that isn't require() since this is require()FileSystem
 
 import {FileSystem} from "../lib/fs";
 
@@ -6,7 +6,7 @@ import {FileSystem} from "../lib/fs";
   //Definitions
   class RequireImpl {
     constructor() {
-      //Stub out a couple methods tmeporarily
+      //Stub out a couple methods temporarily
       //Load from bootfs
       this.loadFile = path => {
         let handle = $bios.bootFS.open(path, 'r');
@@ -58,7 +58,7 @@ import {FileSystem} from "../lib/fs";
     modules:{ [path:string]: any } = {};
 
     apply(path:string):any {
-      let moduleName = this.basename(path).replace(/\.(js|json|es|es5)/, '');
+      let moduleName = this.basename(path).replace(/\.(js|ts|json|es|es5|es6)/, '');
 
       //Cache
       if (this.modules[moduleName]) return this.modules[moduleName];

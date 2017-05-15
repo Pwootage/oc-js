@@ -14,8 +14,8 @@ include(UseJava)
 # JNI
 set(CLASSES_DIR ../build/classes/main/)
 set(GEN_DIR "gen/")
-set(NATIVE_JAVA_CLASSES com.pwootage.oc.js.DuktapeEngine)
-set(JNI_GEN_HEADERS gen/com_pwootage_oc_js_DuktapeEngine.h)
+set(NATIVE_JAVA_CLASSES com.pwootage.oc.js.duktape.DuktapeEngine)
+set(JNI_GEN_HEADERS gen/com_pwootage_oc_js_duktape_DuktapeEngine.h)
 
 add_custom_command(
         OUTPUT ${JNI_GEN_HEADERS}

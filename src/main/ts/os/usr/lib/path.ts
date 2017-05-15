@@ -14,7 +14,7 @@ export interface ParsedPath {
 // must be no slashes or device names (c:\) in the array
 // (so also no leading and trailing slashes - it does not distinguish
 // relative and absolute paths)
-function normalizeArray(parts:string[], allowAboveRoot:boolean) {
+function normalizeArray(parts: string[], allowAboveRoot: boolean) {
   var res = [];
   for (var i = 0; i < parts.length; i++) {
     var p = parts[i];
@@ -39,7 +39,7 @@ function normalizeArray(parts:string[], allowAboveRoot:boolean) {
 
 // Returns an array with empty elements removed from either end of the input
 // array or the original array if no elements need to be removed
-function trimArray(arr:string[]) {
+function trimArray(arr: string[]) {
   var lastIndex = arr.length - 1;
   var start = 0;
   for (; start <= lastIndex; start++) {
@@ -64,14 +64,14 @@ function trimArray(arr:string[]) {
 // 'root' is just a slash, or nothing.
 const splitPathRe = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
 
-function posixSplitPath(filename:string):RegExpExecArray {
+function posixSplitPath(filename: string): RegExpExecArray {
   const out = splitPathRe.exec(filename);
   out.shift();
   return out;
 }
 
 
-export function resolve(...segments:any[]):string {
+export function resolve(...segments: any[]): string {
   var resolvedPath = '',
     resolvedAbsolute = false;
 
@@ -99,28 +99,28 @@ export function resolve(...segments:any[]):string {
   return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
 }
 
-export function normalize(path:string):string {
-  var isAbsolute = isAbsolute(path),
+export function normalize(path: string): string {
+  var isAbs = isAbsolute(path),
     trailingSlash = path && path[path.length - 1] === '/';
 
   // Normalize the path
-  path = normalizeArray(path.split('/'), !isAbsolute).join('/');
+  path = normalizeArray(path.split('/'), !isAbs).join('/');
 
-  if (!path && !isAbsolute) {
+  if (!path && !isAbs) {
     path = '.';
   }
   if (path && trailingSlash) {
     path += '/';
   }
 
-  return (isAbsolute ? '/' : '') + path;
+  return (isAbs ? '/' : '') + path;
 }
 
-export function isAbsolute(path:string) {
+export function isAbsolute(path: string): boolean {
   return !!path && path[0] === '/';
 }
 
-export function join(...segments:string[]):string {
+export function join(...segments: string[]): string {
   var path = '';
   for (var i = 0; i < segments.length; i++) {
     var segment = segments[i];
@@ -136,7 +136,7 @@ export function join(...segments:string[]):string {
 }
 
 
-export function relative(from:string, to:string) {
+export function relative(from: string, to: string) {
   from = resolve(from).substr(1);
   to = resolve(to).substr(1);
 
@@ -162,7 +162,7 @@ export function relative(from:string, to:string) {
   return outputParts.join('/');
 }
 
-export function dirname(path:string):string {
+export function dirname(path: string): string {
   var result = posixSplitPath(path),
     root = result[0],
     dir = result[1];
@@ -181,7 +181,7 @@ export function dirname(path:string):string {
 }
 
 
-export function basename(path:string, ext?:string) {
+export function basename(path: string, ext?: string) {
   var f = posixSplitPath(path)[2];
   if (ext && f.substr(-1 * ext.length) === ext) {
     f = f.substr(0, f.length - ext.length);
@@ -190,12 +190,12 @@ export function basename(path:string, ext?:string) {
 }
 
 
-export function extname(path:string):string {
+export function extname(path: string): string {
   return posixSplitPath(path)[3];
 }
 
 
-export function format(pathObject:ParsedPath):string {
+export function format(pathObject: ParsedPath): string {
   var dir = pathObject.dir || pathObject.root;
   var base = pathObject.base || ((pathObject.name || '') + (pathObject.ext || ''));
   if (!dir) return base;
@@ -204,7 +204,7 @@ export function format(pathObject:ParsedPath):string {
 }
 
 
-export function parse(pathString:string):ParsedPath {
+export function parse(pathString: string): ParsedPath {
   var allParts = posixSplitPath(pathString);
   return {
     root: allParts[0],

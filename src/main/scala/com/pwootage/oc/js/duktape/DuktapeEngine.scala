@@ -1,4 +1,6 @@
-package com.pwootage.oc.js
+package com.pwootage.oc.js.duktape
+
+import com.pwootage.oc.js.JSEngine
 
 abstract class DuktapeEngine extends JSEngine {
   private var _maxMemory: Long = 0
