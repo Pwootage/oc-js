@@ -28,7 +28,7 @@ minecraft {
     mappings = "snapshot_20160720"
     // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 
-    replaceIn "com/pwootage/oc/nashorn/OCNASHORN.scala"
+    replaceIn "com/pwootage/oc/js/OCJS.scala"
     replace "@VERSION@", project.version
 }
 
@@ -37,7 +37,7 @@ repositories {
 }
 
 dependencies {
-    compile "li.cil.oc:OpenComputers:MC1.10-1.6.+:api"
+    compile "li.cil.oc:OpenComputers:MC1.10.2-1.7.+:api"
     compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
 }
 

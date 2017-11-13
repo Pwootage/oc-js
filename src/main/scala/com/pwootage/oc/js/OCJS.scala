@@ -5,6 +5,7 @@ import java.util.concurrent.Callable
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.duktape.DuktapeArchitecture
+import com.pwootage.oc.js.v8.V8Architecture
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
@@ -43,14 +44,15 @@ object OCJS {
     log.info("Loaded duktape natives")
 
 //    Machine.add(classOf[NashornArchitecture])
-    Machine.add(classOf[DuktapeArchitecture])
+//    Machine.add(classOf[DuktapeArchitecture])
+    Machine.add(classOf[V8Architecture])
 
-    val is = classOf[DuktapeArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
+    val is = classOf[V8Architecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
     Items.registerEEPROM("EEPROM (jsboot)", ByteStreams.toByteArray(is), null, true)
     is.close()
 
     Items.registerFloppy("oc.js", EnumDyeColor.LIGHT_BLUE, new Callable[fs.FileSystem] {
-      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[DuktapeArchitecture], "oc-js", "os/")
+      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[V8Architecture], "oc-js", "os/")
     })
   }
 

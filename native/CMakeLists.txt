@@ -14,8 +14,14 @@ include(UseJava)
 # JNI
 set(CLASSES_DIR ../build/classes/main/)
 set(GEN_DIR "gen/")
-set(NATIVE_JAVA_CLASSES com.pwootage.oc.js.duktape.DuktapeEngine)
-set(JNI_GEN_HEADERS gen/com_pwootage_oc_js_duktape_DuktapeEngine.h)
+set(NATIVE_JAVA_CLASSES
+        com.pwootage.oc.js.duktape.DuktapeEngine
+        com.pwootage.oc.js.v8.V8Engine
+        com.pwootage.oc.js.v8.V8Static)
+set(JNI_GEN_HEADERS
+        gen/com_pwootage_oc_js_duktape_DuktapeEngine.h
+        gen/com_pwootage_oc_js_v8_V8Engine.h
+        gen/com_pwootage_oc_js_v8_V8Static.h)
 
 add_custom_command(
         OUTPUT ${JNI_GEN_HEADERS}
@@ -27,7 +33,7 @@ add_custom_command(
 )
 
 # Includes
-include_directories(${JNI_INCLUDE_DIRS} ${GEN_DIR})
+include_directories(${JNI_INCLUDE_DIRS} ${GEN_DIR} include)
 
 # Source
 set(SOURCE_FILES
@@ -35,7 +41,8 @@ set(SOURCE_FILES
         duk_config.h
         duktape.h
         duktape.c
-        DuktapeEngine.cpp)
+        DuktapeEngine.cpp
+        V8Engine.cpp)
 
 # Build
 add_library(ocjs SHARED ${SOURCE_FILES})
