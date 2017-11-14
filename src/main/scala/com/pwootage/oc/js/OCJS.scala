@@ -1,7 +1,9 @@
 package com.pwootage.oc.js
 
+import java.lang.management.ManagementFactory
 import java.nio.file.Paths
-import java.util.concurrent.Callable
+import java.util.{Timer, TimerTask}
+import java.util.concurrent.{Callable, ScheduledThreadPoolExecutor}
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.duktape.DuktapeArchitecture
@@ -54,6 +56,14 @@ object OCJS {
     Items.registerFloppy("oc.js", EnumDyeColor.LIGHT_BLUE, new Callable[fs.FileSystem] {
       override def call(): fs.FileSystem = FileSystem.fromClass(classOf[V8Architecture], "oc-js", "os/")
     })
+
+    val t = new Timer()
+    val task = new TimerTask {
+      override def run() = {
+        log.info(ManagementFactory.getRuntimeMXBean().getName())
+      }
+    }
+    t.scheduleAtFixedRate(task, 10000, 10000)
   }
 
   @EventHandler
