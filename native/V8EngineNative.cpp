@@ -63,11 +63,34 @@ V8EngineNative *V8EngineNative::getFromJava(JNIEnv *env, jobject obj) {
     return reinterpret_cast<V8EngineNative *>(env->GetLongField(obj, v8EngineNativeFID));
 }
 
+void V8EngineNative::setToJava(JNIEnv *env, jobject obj, V8EngineNative *data) {
+    env->SetLongField(obj, v8EngineNativeFID, reinterpret_cast<jlong>(data));
+}
 
 V8EngineNative::V8EngineNative() {
-
+    create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+    isolate = Isolate::New(create_params);
+    {
+        Isolate::Scope isolate_scope(isolate);
+        // Create a stack-allocated handle scope.
+        HandleScope handle_scope(isolate);
+        // Create a new context.
+        Local<Context> context = Context::New(isolate);
+        // Enter the context for compiling and running the hello world script.
+        Context::Scope context_scope(context);
+        // Create a string containing the JavaScript source code.
+        Local<String> source = String::NewFromUtf8(isolate, "'Isolate initialized'", NewStringType::kNormal).ToLocalChecked();
+        // Compile the source code.
+        Local<Script> script = Script::Compile(context, source).ToLocalChecked();
+        // Run the script to get the result.
+        Local<Value> result = script->Run(context).ToLocalChecked();
+        // Convert the result to an UTF8 string and print it.
+        String::Utf8Value utf8(result);
+        printf("%s\n", *utf8);
+    }
 }
 
 V8EngineNative::~V8EngineNative() {
-
+    isolate->Dispose();
+    delete create_params.array_buffer_allocator;
 }

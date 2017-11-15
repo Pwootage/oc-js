@@ -20,7 +20,10 @@ public:
 
     static void Initialize(JNIEnv *env, jclass clazz);
     static V8EngineNative *getFromJava(JNIEnv *env, jobject obj);
+    static void setToJava(JNIEnv *env, jobject obj, V8EngineNative *data);
 private:
+    v8::Isolate::CreateParams create_params;
+    v8::Isolate *isolate;
 };
 
 
