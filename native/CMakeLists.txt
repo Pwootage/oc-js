@@ -4,7 +4,7 @@ project(ocjs)
 set(CMAKE_CXX_STANDARD 11)
 
 # Compiler options
-add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libstdc++)
+add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
 
 # Libraries
 find_package(Java REQUIRED)
@@ -40,9 +40,11 @@ set(SOURCE_FILES
         ${JNI_GEN_HEADERS}
         duk_config.h
         duktape.h
-        duktape.c
+#        duktape.c
         DuktapeEngine.cpp
-        V8Engine.cpp test_main.cpp)
+        V8Engine.cpp
+        V8EngineNative.cpp
+        V8EngineNative.h)
 
 # Build
 add_library(ocjs SHARED ${SOURCE_FILES})
@@ -57,9 +59,6 @@ endif()
 
 if(LINUX)
     target_link_libraries(ocjs
-            z
-            rt
-            pthread
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_base.a
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_external_snapshot.a
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libicui18n.a
@@ -68,5 +67,8 @@ if(LINUX)
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_libplatform.a
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_libsampler.a
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_libbase.a
+            z
+            rt
+            pthread
             -stdlib=libc++)
 endif()

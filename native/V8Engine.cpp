@@ -1,54 +1,53 @@
+#include <jni.h>
 #include "com_pwootage_oc_js_v8_V8Engine.h"
 #include "com_pwootage_oc_js_v8_V8Static.h"
-#include "include/v8.h"
-#include "include/libplatform/libplatform.h"
-#include <cstdio>
+#include "V8EngineNative.h"
 
 using namespace v8;
 
-static Platform *v8Platform;
-
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_v8_V8Static_native_1init(JNIEnv *env, jclass clazz) {
-    printf("V8 natives starting up\n");
-    jfieldID icudtl_id = env->GetStaticFieldID(clazz, "icudtl", "Ljava/nio/ByteBuffer;");
-    jfieldID snapshot_blob_id = env->GetStaticFieldID(clazz, "snapshot_blob", "Ljava/nio/ByteBuffer;");
-    jfieldID natives_blob_id = env->GetStaticFieldID(clazz, "natives_blob", "Ljava/nio/ByteBuffer;");
-    printf("Field IDs: %d, %d, %d\n", icudtl_id, snapshot_blob_id, natives_blob_id);
-    fflush(stdin);
-    jobject icudtl = env->GetStaticObjectField(clazz, icudtl_id);
-    jobject natives_blob = env->GetStaticObjectField(clazz, natives_blob_id);
-    jobject snapshot_blob = env->GetStaticObjectField(clazz, snapshot_blob_id);
-
-
-    StartupData icudtl_data{
-            reinterpret_cast<const char *>(env->GetDirectBufferAddress(icudtl)),
-            static_cast<int>(env->GetDirectBufferCapacity(icudtl))
-    };
-    StartupData natives_blob_data{
-            reinterpret_cast<const char *>(env->GetDirectBufferAddress(natives_blob)),
-            static_cast<int>(env->GetDirectBufferCapacity(natives_blob))
-    };
-    StartupData snapshot_blob_data{
-            reinterpret_cast<const char *>(env->GetDirectBufferAddress(snapshot_blob)),
-            static_cast<int>(env->GetDirectBufferCapacity(snapshot_blob))
-    };
-    V8::SetNativesDataBlob(&natives_blob_data);
-    V8::SetSnapshotDataBlob(&snapshot_blob_data);
-    //TODO: icudtl?
-    //    V8::Initi
-    v8Platform = platform::CreateDefaultPlatform();
-    V8::InitializePlatform(v8Platform);
-    V8::Initialize();
+    V8EngineNative::Initialize(env, clazz);
 }
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_v8_V8Engine_native_1start(JNIEnv *env, jobject self) {
+    printf("Native start\n");
+    fflush(stdout);
 
+    // Create a new Isolate and make it the current one.
+    Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator =
+            v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+    Isolate* isolate = Isolate::New(create_params);
+    {
+        Isolate::Scope isolate_scope(isolate);
+        // Create a stack-allocated handle scope.
+        HandleScope handle_scope(isolate);
+        // Create a new context.
+        Local<Context> context = Context::New(isolate);
+        // Enter the context for compiling and running the hello world script.
+        Context::Scope context_scope(context);
+        // Create a string containing the JavaScript source code.
+        Local<String> source =
+                String::NewFromUtf8(isolate, "'JS ' + ', RAN!'",
+                                    NewStringType::kNormal).ToLocalChecked();
+        // Compile the source code.
+        Local<Script> script = Script::Compile(context, source).ToLocalChecked();
+        // Run the script to get the result.
+        Local<Value> result = script->Run(context).ToLocalChecked();
+        // Convert the result to an UTF8 string and print it.
+        String::Utf8Value utf8(result);
+        printf("%s\n", *utf8);
+        fflush(stdout);
+    }
+    isolate->Dispose();
+    delete create_params.array_buffer_allocator;
 }
 
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_v8_V8Engine_native_1destroy(JNIEnv *env, jobject self) {
-
+    printf("Native destroy\n");
+    fflush(stdout);
 }

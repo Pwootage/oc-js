@@ -12,11 +12,11 @@ public class V8Static {
   private static ByteBuffer natives_blob;
   private static ByteBuffer snapshot_blob;
 
-  static boolean isInitialized() {
+  public static boolean isInitialized() {
     return initialized;
   }
 
-  static synchronized void initialize() {
+  public static synchronized void initialize() {
     if (initialized) {
       return;
     }
@@ -43,6 +43,7 @@ public class V8Static {
     in.close();
     ByteBuffer res = ByteBuffer.allocateDirect(bytes.length);
     res.put(bytes);
+    res.rewind();
     return res;
   }
 

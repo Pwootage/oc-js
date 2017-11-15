@@ -7,7 +7,7 @@ import java.util.concurrent.{Callable, ScheduledThreadPoolExecutor}
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.duktape.DuktapeArchitecture
-import com.pwootage.oc.js.v8.V8Architecture
+import com.pwootage.oc.js.v8.{V8Architecture, V8Static}
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
@@ -40,9 +40,12 @@ object OCJS {
 //    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
 //    log.info("Pre-loaded Nashorn.")
 
+    val pid = ManagementFactory.getRuntimeMXBean().getName()
+    log.info(pid)
     log.info("Loading duktape natives")
     //TODO: make this work in not, well, dev
     System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
+    V8Static.initialize()
     log.info("Loaded duktape natives")
 
 //    Machine.add(classOf[NashornArchitecture])
@@ -60,7 +63,7 @@ object OCJS {
     val t = new Timer()
     val task = new TimerTask {
       override def run() = {
-        log.info(ManagementFactory.getRuntimeMXBean().getName())
+        log.info(pid)
       }
     }
     t.scheduleAtFixedRate(task, 10000, 10000)

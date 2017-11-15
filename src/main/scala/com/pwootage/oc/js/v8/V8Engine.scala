@@ -7,6 +7,7 @@ import com.pwootage.oc.js.JSEngine
 import com.pwootage.oc.js.jsvalue.{JSUndefined, JSValue}
 
 class V8Engine extends JSEngine {
+  private var v8EngineNative: Long = 0
   private var _maxMemory: Int = 0
   private var allocatedMemory: Int = 0
   private var _started = false
