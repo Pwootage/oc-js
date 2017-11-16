@@ -16,7 +16,8 @@ classes
 
 # JS
 node_modules
-src/main/resources/assets/oc-js/
+src/main/resources/assets/oc-js/bios
+src/main/resources/assets/oc-js/os
 .baseDir.tsW
 .tscache
 
