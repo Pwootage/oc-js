@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(ocjs)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 # Compiler options
 add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
@@ -15,11 +15,9 @@ include(UseJava)
 set(CLASSES_DIR ../build/classes/main/)
 set(GEN_DIR "gen/")
 set(NATIVE_JAVA_CLASSES
-        com.pwootage.oc.js.duktape.DuktapeEngine
         com.pwootage.oc.js.v8.V8Engine
         com.pwootage.oc.js.v8.V8Static)
 set(JNI_GEN_HEADERS
-        gen/com_pwootage_oc_js_duktape_DuktapeEngine.h
         gen/com_pwootage_oc_js_v8_V8Engine.h
         gen/com_pwootage_oc_js_v8_V8Static.h)
 
@@ -40,8 +38,7 @@ set(SOURCE_FILES
         ${JNI_GEN_HEADERS}
         duk_config.h
         duktape.h
-#        duktape.c
-        DuktapeEngine.cpp
+        #        duktape.c
         V8Engine.cpp
         V8EngineNative.cpp
         V8EngineNative.h)
@@ -53,11 +50,23 @@ target_link_libraries(ocjs ${JNI_LIBRARIES})
 add_executable(ocjs_test test_main.cpp)
 target_link_libraries(ocjs_test ocjs)
 
-if(UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE)
     set(LINUX TRUE)
-endif()
+endif ()
 
-if(LINUX)
+if (WIN32)
+
+elseif (APPLE)
+    target_link_libraries(ocjs
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libv8_base.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libv8_external_snapshot.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libicui18n.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libicuuc.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libinspector.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libv8_libplatform.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libv8_libsampler.a
+            ${CMAKE_SOURCE_DIR}/v8/macos.x64/libv8_libbase.a)
+else ()
     target_link_libraries(ocjs
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_base.a
             ${CMAKE_SOURCE_DIR}/v8/linux.x64/libv8_external_snapshot.a
@@ -71,4 +80,4 @@ if(LINUX)
             rt
             pthread
             -stdlib=libc++)
-endif()
+endif ()

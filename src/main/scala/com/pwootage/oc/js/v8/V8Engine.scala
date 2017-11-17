@@ -4,13 +4,19 @@ import java.nio.ByteBuffer
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.JSEngine
-import com.pwootage.oc.js.jsvalue.{JSUndefined, JSValue}
+import com.pwootage.oc.js.jsvalue.{JSStringValue, JSUndefined, JSValue}
 
 class V8Engine extends JSEngine {
   private var v8EngineNative: Long = 0
   private var _maxMemory: Int = 0
   private var allocatedMemory: Int = 0
   private var _started = false
+
+  // Initialize on startup
+  if (!V8Static.isInitialized) {
+    V8Static.initialize()
+  }
+  native_start()
 
   override def setMaxMemory(max: Int): Unit = _maxMemory = max
 
@@ -21,20 +27,15 @@ class V8Engine extends JSEngine {
   override def started: Boolean = _started
 
   override def start(): Unit = {
-    if (!V8Static.isInitialized) {
-      V8Static.initialize()
-    }
-    native_start()
   }
 
   override def destroy(): Unit = {
     native_destroy()
   }
 
-  override def evalWithName(filename: String, js: String): JSValue = {
-    //TODO
-    println(s"NEED TO EXECUTE $filename")
-    JSUndefined
+  override def evalWithName(filename: String, js: String, context: V8ExecutionContext): JSValue = {
+    val res = compile_and_execute(js, filename, context.raw)
+    JSStringValue(res)
   }
 
   override def executeThreaded(syncResult: JSValue): JSValue = {
@@ -47,4 +48,5 @@ class V8Engine extends JSEngine {
 
   @native protected def native_destroy(): Unit
 
+  @native protected def compile_and_execute(src: String, filename: String, context: Int): String
 }

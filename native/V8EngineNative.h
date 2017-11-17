@@ -5,6 +5,7 @@
 #ifndef OCJS_V8ENGINENATIVE_H
 #define OCJS_V8ENGINENATIVE_H
 #include <jni.h>
+#include <memory>
 #include "include/v8.h"
 #include "include/libplatform/libplatform.h"
 
@@ -15,15 +16,32 @@
  * */
 class V8EngineNative {
 public:
-    V8EngineNative();
+    enum class ExecutionContext {
+        bios = 0,
+        kernel = 1,
+        user = 2
+    };
+
+    V8EngineNative(JNIEnv *env, jobject obj);
     ~V8EngineNative();
 
     static void Initialize(JNIEnv *env, jclass clazz);
     static V8EngineNative *getFromJava(JNIEnv *env, jobject obj);
     static void setToJava(JNIEnv *env, jobject obj, V8EngineNative *data);
+
+    v8::Isolate *getIsolate();
+    v8::Local<v8::Value> compileAndExecute(jstring src, jstring filename, ExecutionContext context);
 private:
+    JavaVM *javaVM;
+    jobject globalObjRef;
+
     v8::Isolate::CreateParams create_params;
     v8::Isolate *isolate;
+    v8::Global<v8::Context> biosContext;
+    v8::Global<v8::Context> kernelContext;
+    v8::Global<v8::Context> userContext;
+
+    std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>> getEnv();
 };
 
 

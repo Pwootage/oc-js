@@ -5,6 +5,7 @@ import java.util
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
 import com.pwootage.oc.js.jsvalue.{JSArray, JSUndefined, JSValue}
+import com.pwootage.oc.js.v8.V8ExecutionContext
 import li.cil.oc.api.Driver
 import li.cil.oc.api.driver.item.Memory
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, LimitReachedException, Machine}
@@ -73,7 +74,8 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
       //Load bios
       val biosJS = StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js")
-      mainEngine.evalWithName("bios.js", biosJS)
+      val res = mainEngine.evalWithName("bios.js", biosJS, V8ExecutionContext.BIOS)
+      println("Bios result: ", res)
 
       val bios = new util.HashMap[String, Object]()
 

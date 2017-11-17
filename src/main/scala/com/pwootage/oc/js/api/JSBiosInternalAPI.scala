@@ -1,5 +1,6 @@
 package com.pwootage.oc.js.api
 
+import com.pwootage.oc.js.v8.V8ExecutionContext
 import com.pwootage.oc.js.{JSEngine, OCJS}
 import li.cil.oc.api.machine.Machine
 
@@ -14,6 +15,7 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
   }
 
   def compile(name: String, script: String): AnyRef = {
-    scriptEngine.evalWithName(name, script)
+    //TODO: Allow this to set context?
+    scriptEngine.evalWithName(name, script, V8ExecutionContext.KERNEL)
   }
 }
