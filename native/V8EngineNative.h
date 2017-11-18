@@ -4,6 +4,7 @@
 
 #ifndef OCJS_V8ENGINENATIVE_H
 #define OCJS_V8ENGINENATIVE_H
+#define V8_DEPRECATION_WARNINGS
 #include <jni.h>
 #include <memory>
 #include "include/v8.h"
@@ -42,6 +43,7 @@ private:
     v8::Global<v8::Context> userContext;
 
     std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>> getEnv();
+    v8::Local<v8::Value> convertException(v8::Local<v8::Context> &context, v8::TryCatch &tryCatch);
 };
 
 

@@ -3,7 +3,51 @@ package com.pwootage.oc.js.jsvalue
 import java.util
 import java.util.function.BiConsumer
 
+import com.google.gson._
+import scala.collection.JavaConversions._
+
+/**
+  * Basically a small json library wrapping gson because I'm too lazy to figure out an external dep
+  */
 object JSValue {
+  val gson = new GsonBuilder().create()
+
+  def fromJSON(json: String): JSValue = {
+    val jsonParser = new JsonParser()
+    val ele = jsonParser.parse(json)
+    JSValue.fromJSON(ele)
+  }
+
+  def fromJSON(ele: JsonElement): JSValue = {
+    ele match {
+      case primitive: JsonPrimitive if ele.isJsonPrimitive =>
+        if (primitive.isBoolean) {
+          JSBooleanValue(primitive.getAsBoolean)
+        } else if (primitive.isNumber) {
+          JSDoubleValue(primitive.getAsDouble)
+        } else {
+          JSStringValue(primitive.getAsString)
+        }
+      case array: JsonArray if ele.isJsonArray =>
+        val res = new Array[JSValue](array.size())
+        for (i <- res.indices) {
+          res(i) = fromJSON(array.get(i))
+        }
+        JSArray(res)
+      case obj: JsonObject if ele.isJsonObject =>
+        val res = new util.HashMap[String, JSValue]()
+        for (entry <- obj.entrySet().iterator()) {
+          res.put(entry.getKey, fromJSON(entry.getValue))
+        }
+        JSMap(res)
+      case nul: JsonNull if ele.isJsonNull =>
+        JSNull
+      case x =>
+        println("Unknown json?", x)
+        JSNull
+    }
+  }
+
   def javaToJsValue[T](obj: T): JSValue = {
     obj match {
       case x: java.lang.Float => JSDoubleValue(x.doubleValue())
@@ -19,9 +63,7 @@ object JSValue {
             k match {
               case x: String =>
                 val jsVal = javaToJsValue(v)
-                if (jsVal.isDefined) {
-                  res.put(x, jsVal)
-                }
+                res.put(x, jsVal)
               case _ => //Do nothing
             }
           }
@@ -30,7 +72,7 @@ object JSValue {
       case x: Array[AnyRef] =>
         JSArray(x.map(javaToJsValue))
       case _ =>
-        JSUndefined
+        JSNull
     }
   }
 }
@@ -39,7 +81,7 @@ object JSValue {
   * Created by pwootage on 5/14/17.
   */
 trait JSValue {
-  def property(name: String): JSValue = JSUndefined
+  def property(name: String): JSValue = JSNull
 
   def asString: Option[String] = None
 
@@ -49,42 +91,57 @@ trait JSValue {
 
   def asArray: Option[Array[JSValue]] = None
 
-  def isDefined: Boolean = true
-
   /**
     * Converts this to a simple java type. Note this will return None for non-basic types!
     */
   def asSimpleJava: Option[AnyRef] = None
-}
 
-case object JSUndefined extends JSValue {
-  override def isDefined = false
+  def toJSON: String
 }
 
 case class JSStringValue(value: String) extends JSValue {
   override def asString = Some(value)
 
   override def asSimpleJava = Some(value)
+
+  override def toJSON = JSValue.gson.toJson(value)
 }
 
 case class JSDoubleValue(value: Double) extends JSValue {
+
   override def asDouble = Some(value)
 
   override def asSimpleJava: Some[java.lang.Double] = Some(value)
+
+  override def toJSON = s"$value"
 }
 
 case class JSBooleanValue(value: Boolean) extends JSValue {
   override def asBoolean = Some(value)
 
   override def asSimpleJava: Some[java.lang.Boolean] = Some(value)
+
+  override def toJSON = if (value) "true" else "false"
 }
 
 case class JSArray(value: Array[JSValue]) extends JSValue {
   override def asArray = Some(value)
 
   override def asSimpleJava = Some(value.flatMap(_.asSimpleJava))
+
+  override def toJSON = s"[${value.map(_.toJSON).mkString(",")}]"
 }
 
 case class JSMap(value: util.HashMap[String, JSValue]) extends JSValue {
-  override def property(name: String) = value.getOrDefault(name, JSUndefined)
+  override def property(name: String) = value.getOrDefault(name, JSNull)
+
+  override def toJSON = "{" +
+    value.entrySet()
+      .map(entry => JSValue.gson.toJson(entry.getKey) + ":" + entry.getValue.toJSON)
+      .mkString(",") +
+    "}"
+}
+
+case object JSNull extends JSValue {
+  override def toJSON = "null"
 }

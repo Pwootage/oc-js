@@ -40,24 +40,19 @@ void V8EngineNative::Initialize(JNIEnv *env, jclass clazz) {
   jobject snapshot_blob = env->GetStaticObjectField(clazz, snapshot_blob_id);
 
 
-//    StartupData icudtl_data{
-//            reinterpret_cast<const char *>(env->GetDirectBufferAddress(icudtl)),
-//            static_cast<int>(env->GetDirectBufferCapacity(icudtl))
-//    };
   icudtl_data = getData(env, icudtl);
   natives_blob_data = getData(env, natives_blob);
   snapshot_blob_data = getData(env, snapshot_blob);
 
+  // TODO: icudtl?
   V8::SetNativesDataBlob(natives_blob_data);
   V8::SetSnapshotDataBlob(snapshot_blob_data);
-//    V8::InitializeICUDefaultLocation("/home/pwootage/projects/oc-js/src/main/resources/assets/oc-js/v8/");
-//    V8::InitializeExternalStartupData("/home/pwootage/projects/oc-js/src/main/resources/assets/oc-js/v8/");
   v8Platform = platform::CreateDefaultPlatform(1,
                                                platform::IdleTaskSupport::kDisabled,
                                                platform::InProcessStackDumping::kDisabled);
   V8::InitializePlatform(v8Platform);
   V8::Initialize();
-//
+
   jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/v8/V8Engine");
   v8EngineNativeFID = env->GetFieldID(v8EngineClass, "v8EngineNative", "J");
 }
@@ -76,26 +71,6 @@ V8EngineNative::V8EngineNative(JNIEnv *env, jobject obj) {
 
   create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
   isolate = Isolate::New(create_params);
-  {
-    Isolate::Scope isolate_scope(isolate);
-    // Create a stack-allocated handle scope.
-    HandleScope handle_scope(isolate);
-    // Create a new context.
-    Local<Context> context = Context::New(isolate);
-    // Enter the context for compiling and running the hello world script.
-    Context::Scope context_scope(context);
-    // Create a string containing the JavaScript source code.
-    Local<String> source = String::NewFromUtf8(isolate, "'Isolate initialized'", NewStringType::kNormal)
-      .ToLocalChecked();
-    // Compile the source code.
-    Local<Script> script = Script::Compile(context, source).ToLocalChecked();
-    // Run the script to get the result.
-    Local<Value> result = script->Run(context).ToLocalChecked();
-    // Convert the result to an UTF8 string and print it.
-    String::Utf8Value utf8(result);
-    printf("%s????\n", *utf8);
-    fflush(stdout);
-  }
 
   {
     Isolate::Scope isolate_scope(isolate);
@@ -154,7 +129,7 @@ V8EngineNative::compileAndExecute(jstring src, jstring filename, ExecutionContex
   Local<String> srcStr = String::NewFromUtf8(isolate, srcCStr, NewStringType::kNormal).ToLocalChecked();
   env->ReleaseStringUTFChars(src, srcCStr);
 
-  const char *filenameCStr = env->GetStringUTFChars(src, JNI_FALSE);
+  const char *filenameCStr = env->GetStringUTFChars(filename, JNI_FALSE);
   Local<String> filenameStr = String::NewFromUtf8(isolate, filenameCStr, NewStringType::kNormal).ToLocalChecked();
   env->ReleaseStringUTFChars(filename, filenameCStr);
 
@@ -176,44 +151,110 @@ V8EngineNative::compileAndExecute(jstring src, jstring filename, ExecutionContex
   TryCatch try_catch(isolate);
   Local<Script> script = Script::Compile(srcStr, filenameStr);
   if (script.IsEmpty()) {
-    Local<Object> res = Object::New(isolate);
-    res->Set(
-      String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
-      String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
-    );
-    res->Set(
-      String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
-      try_catch.Exception()->ToString()
-    );
-    return handle_scope.Escape(res);
+    return handle_scope.Escape(convertException(context, try_catch));
   }
 
   Local<Value> scriptResult = script->Run();
   if (scriptResult.IsEmpty()) {
-    Local<Object> res = Object::New(isolate);
-    res->Set(
-      String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
-      String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
-    );
-    res->Set(
-      String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
-      try_catch.Exception()->ToString()
-    );
-    return handle_scope.Escape(res);
+    return handle_scope.Escape(convertException(context, try_catch));
   }
 
   Local<Object> res = Object::New(isolate);
   res->Set(
-    String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
-    String::NewFromUtf8(isolate, "success", NewStringType::kNormal).ToLocalChecked()
+      String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
+      String::NewFromUtf8(isolate, "success", NewStringType::kNormal).ToLocalChecked()
   );
   res->Set(
-    String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
-    scriptResult
+      String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
+      scriptResult
   );
   return handle_scope.Escape(res);
 }
 
 Isolate *V8EngineNative::getIsolate() {
   return isolate;
+}
+
+Local<Value> V8EngineNative::convertException(Local<Context> &context, TryCatch &tryCatch) {
+  EscapableHandleScope handle_scope(isolate);
+  Local<Message> message = tryCatch.Message();
+  if (message.IsEmpty()) {
+    return handle_scope.Escape(Local<Value>());
+  }
+
+  Local<Object> result = Object::New(isolate);
+  result->Set(
+      String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
+      String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
+  );
+  result->Set(
+      String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
+      message->GetScriptResourceName()
+  );
+  result->Set(
+      String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
+      message->GetSourceLine()
+  );
+  Maybe<int> line = message->GetLineNumber(context);
+  if (line.IsJust()) {
+    result->Set(
+        String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
+        Integer::New(isolate, line.FromJust())
+    );
+  }
+  Maybe<int> startCol = message->GetStartColumn(context);
+  if (startCol.IsJust()) {
+    result->Set(
+        String::NewFromUtf8(isolate, "start", NewStringType::kNormal).ToLocalChecked(),
+        Integer::New(isolate, startCol.FromJust())
+    );
+  }
+  Maybe<int> endCol = message->GetStartColumn(context);
+  if (endCol.IsJust()) {
+    result->Set(
+        String::NewFromUtf8(isolate, "end", NewStringType::kNormal).ToLocalChecked(),
+        Integer::New(isolate, endCol.FromJust())
+    );
+  }
+
+  Local<StackTrace> stackTrace = message->GetStackTrace();
+  if (!stackTrace.IsEmpty()) {
+    Local<Array> stackArray = Array::New(isolate, stackTrace->GetFrameCount());
+    for (uint32_t i = 0; i < stackTrace->GetFrameCount(); i++) {
+      Local<StackFrame> frame = stackTrace->GetFrame(i);
+      Local<Object> resFrame = Object::New(isolate);
+      resFrame->Set(
+          String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
+          frame->GetScriptName()
+      );
+      resFrame->Set(
+          String::NewFromUtf8(isolate, "function", NewStringType::kNormal).ToLocalChecked(),
+          frame->GetFunctionName()
+      );
+      resFrame->Set(
+          String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
+          Integer::New(isolate, frame->GetLineNumber())
+      );
+      resFrame->Set(
+          String::NewFromUtf8(isolate, "col", NewStringType::kNormal).ToLocalChecked(),
+          Integer::New(isolate, frame->GetColumn())
+      );
+      stackArray->Set(i, resFrame);
+    }
+
+    result->Set(
+        String::NewFromUtf8(isolate, "stacktrace", NewStringType::kNormal).ToLocalChecked(),
+        stackArray
+    );
+  }
+
+  result->Set(
+      String::NewFromUtf8(isolate, "origin", NewStringType::kNormal).ToLocalChecked(),
+      message->GetScriptOrigin().ResourceName()
+  );
+  result->Set(
+      String::NewFromUtf8(isolate, "message", NewStringType::kNormal).ToLocalChecked(),
+      message->Get()
+  );
+  return handle_scope.Escape(result);
 }

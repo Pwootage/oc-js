@@ -7,7 +7,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
-    "noImplicitAny": true,
+    "strict": true,
 
     "outDir": "../../resources/assets/oc-js/os/",
 

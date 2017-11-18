@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.JSEngine
-import com.pwootage.oc.js.jsvalue.{JSStringValue, JSUndefined, JSValue}
+import com.pwootage.oc.js.jsvalue.{JSNull, JSStringValue, JSValue}
 
 class V8Engine extends JSEngine {
   private var v8EngineNative: Long = 0
@@ -35,12 +35,12 @@ class V8Engine extends JSEngine {
 
   override def evalWithName(filename: String, js: String, context: V8ExecutionContext): JSValue = {
     val res = compile_and_execute(js, filename, context.raw)
-    JSStringValue(res)
+    JSValue.fromJSON(res)
   }
 
   override def executeThreaded(syncResult: JSValue): JSValue = {
     println(s"NEED TO EXECUTE THREADED")
-    JSUndefined
+    JSNull
   }
 
   //Native methods

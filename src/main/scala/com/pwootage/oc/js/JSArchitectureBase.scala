@@ -1,10 +1,9 @@
 package com.pwootage.oc.js
 
-import java.lang.Iterable
 import java.util
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
-import com.pwootage.oc.js.jsvalue.{JSArray, JSUndefined, JSValue}
+import com.pwootage.oc.js.jsvalue.{JSNull, JSValue}
 import com.pwootage.oc.js.v8.V8ExecutionContext
 import li.cil.oc.api.Driver
 import li.cil.oc.api.driver.item.Memory
@@ -14,9 +13,9 @@ import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 
 import scala.annotation.tailrec
+import scala.collection.convert.WrapAsScala._
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.collection.convert.WrapAsScala._
 
 trait InvokeResult
 
@@ -74,8 +73,14 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
       //Load bios
       val biosJS = StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js")
-      val res = mainEngine.evalWithName("bios.js", biosJS, V8ExecutionContext.BIOS)
+      val res = mainEngine.evalWithName("bios.js",
+        s"""
+          |(function(exports, global){
+          |${biosJS}
+          |})({}, this)
+        """.stripMargin, V8ExecutionContext.BIOS)
       println("Bios result: ", res)
+      println("Bios result (str)", res.toJSON)
 
       val bios = new util.HashMap[String, Object]()
 
@@ -139,7 +144,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     @tailrec def executeThreaded(): ExecutionResult = {
-      val jsRunResult = mainEngine.executeThreaded(componentInvoker.result().getOrElse(JSUndefined))
+      val jsRunResult = mainEngine.executeThreaded(componentInvoker.result().getOrElse(JSNull))
       val yieldType = jsRunResult.property("type").asString.getOrElse(throw new Exception("RunThreaded did not yield!"))
       yieldType match {
         case "sleep" =>

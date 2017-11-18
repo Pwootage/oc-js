@@ -8,45 +8,36 @@ declare global {
     component: BiosComponentApi;
     computer: BiosComputerApi;
     bootFS: FilesystemComponentAPI;
-    Thread: typeof Thread;
 
     /** Compiles the script passed as a string */
     compile(filename: string, script: string): any;
     /** Does not return. Crashes the machine! */
     crash(msg: string): void;
     log(msg: string): void;
-    javaArrayToList<T>(arr: T[]): T[];
-  }
-
-  class Thread {
-    constructor(fn: (arg?: any) => any);
-
-    static yeild(arg?: any): any | void;
-    static resume(thread: Thread, v?: any): any | void;
   }
 
   interface BiosComponentApi {
-    list(filter?: string): ComponentInfo[];
-    invoke(address: string, name: string, ...args: any[]): any | any[];
-    doc(address: string, name: string): string;
-    methods(address: string): {
+    list(filter?: string): Promise<ComponentInfo[]>;
+    invoke(address: string, name: string, ...args: any[]): Promise<any | any[]>;
+    doc(address: string, name: string): Promise<string>;
+    methods(address: string): Promise<{
       [key: string]: ComponentMethodInfo;
-    };
-    type(address: string): string;
-    proxy(address: string): any;
-    first(type: string): any;
+    }>;
+    type(address: string): Promise<string>;
+    proxy(address: string): Promise<any>;
+    first(type: string): Promise<any>;
   }
 
   interface BiosComputerApi {
-    signal(): Signal;
-    sleep(time: number): void;
-    address(): string;
-    tmpAddress(): string;
-    freeMemory(): number;
-    totalMemory(): number;
-    energy(): number;
-    maxEnergy(): number;
-    uptime(): number;
+    signal(): Promise<Signal | null>;
+    sleep(time: number): Promise<void>;
+    address(): Promise<string>;
+    tmpAddress(): Promise<string>;
+    freeMemory(): Promise<number>;
+    totalMemory(): Promise<number>;
+    energy(): Promise<number>;
+    maxEnergy(): Promise<number>;
+    uptime(): Promise<number>;
   }
 
   interface ComponentInfo {

@@ -2,6 +2,8 @@ package com.pwootage.oc.js
 
 import java.nio.charset.StandardCharsets
 
+import com.pwootage.oc.js.jsvalue.JSValue
+
 import scala.math.ScalaNumber
 
 object JSUtils {

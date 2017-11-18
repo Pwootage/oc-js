@@ -2,13 +2,11 @@ package com.pwootage.oc.js
 
 import java.lang.management.ManagementFactory
 import java.nio.file.Paths
+import java.util.concurrent.Callable
 import java.util.{Timer, TimerTask}
-import java.util.concurrent.{Callable, ScheduledThreadPoolExecutor}
 
 import com.google.common.io.ByteStreams
-import com.pwootage.oc.js.duktape.DuktapeArchitecture
 import com.pwootage.oc.js.v8.{V8Architecture, V8Static}
-import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
 import net.minecraftforge.fml.common.Mod
@@ -36,21 +34,21 @@ object OCJS {
   @EventHandler
   def preInit(e: FMLPreInitializationEvent): Unit = {
     //Pre-load nashorn to save time later
-//    log.info("Pre-loading Nashorn...")
-//    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
-//    log.info("Pre-loaded Nashorn.")
+    //    log.info("Pre-loading Nashorn...")
+    //    new NashornScriptEngineFactory().getScriptEngine.eval("1 + 1")
+    //    log.info("Pre-loaded Nashorn.")
 
     val pid = ManagementFactory.getRuntimeMXBean().getName()
     log.info(pid)
     log.info("Loading duktape natives")
     //TODO: make this work in not, well, dev
-//    System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
-    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
+        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
+//    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
     V8Static.initialize()
     log.info("Loaded duktape natives")
 
-//    Machine.add(classOf[NashornArchitecture])
-//    Machine.add(classOf[DuktapeArchitecture])
+    //    Machine.add(classOf[NashornArchitecture])
+    //    Machine.add(classOf[DuktapeArchitecture])
     Machine.add(classOf[V8Architecture])
 
     val is = classOf[V8Architecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
