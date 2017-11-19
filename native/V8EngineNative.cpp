@@ -316,8 +316,8 @@ void V8EngineNative::__call(const FunctionCallbackInfo<Value> &info) {
   } else {
     resCStr = env->GetStringUTFChars(resJString, &isCopy);
   } //new
-  printf("__call result: %s\n", resCStr);
-  fflush(stdout);
+//  printf("__call result: %s\n", resCStr);
+//  fflush(stdout);
   Local<String> resLocalStr = String::NewFromUtf8(info.GetIsolate(), resCStr, NewStringType::kNormal).ToLocalChecked();
 
   if (resJString != nullptr) {

@@ -203,7 +203,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
     if (m == null) {
       return InvokeResultComplete(Array())
     } else {
-      val args = jsArgs.flatMap(_.asSimpleJava)
+      val args = jsArgs.map(_.asSimpleJava)
       if (m.direct()) {
         val res = try machine.invoke(address, method, args) catch {
           case e: LimitReachedException =>

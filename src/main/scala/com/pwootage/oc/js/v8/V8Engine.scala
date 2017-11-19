@@ -5,7 +5,7 @@ import java.util
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.{JSArchitectureBase, JSEngine}
-import com.pwootage.oc.js.jsvalue.{JSMap, JSNull, JSStringValue, JSValue}
+import com.pwootage.oc.js.jsvalue._
 
 import scala.collection.mutable
 
@@ -78,10 +78,45 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
         println(s"Bios crash: ${args.arrayVal(0).asString}")
         arch.biosInternalAPI.crash(args.arrayVal(0).asString.getOrElse("Unspecified error"))
         res.put("state", noop)
+      case "bios.log" =>
+        arch.biosInternalAPI.log(args.arrayVal(0).asString.getOrElse(""))
+        res.put("state", noop)
+      case "bios.compile" =>
+        val compileRes = arch.biosInternalAPI.compile(
+          args.arrayVal(0).asString.getOrElse(""),
+          args.arrayVal(1).asString.getOrElse("<anonymous.js>")
+        )
+        res.put("state", sync)
+        res.put("value", compileRes)
       case "component.list" =>
         val list = arch.componentAPI.list(args.arrayVal(0).asString.getOrElse(""))
         res.put("state", sync)
         res.put("value", JSValue.fromJava(list))
+      case "component.methods" =>
+        val methods = arch.componentAPI.methods(args.arrayVal(0).asString.getOrElse(""))
+        res.put("state", sync)
+        res.put("value", JSValue.fromJava(methods))
+      case "component.invoke" =>
+        val invokeResult = arch.componentAPI.invoke(
+          args.arrayVal(0).asString.getOrElse(""),
+          args.arrayVal(1).asString.getOrElse(""),
+          args.arrayVal(2).asArray.getOrElse(Array()).map(_.asSimpleJava)
+        )
+        res.put("state", sync)
+        res.put("value", JSValue.fromJava(invokeResult))
+      case "component.doc" =>
+        val doc = arch.componentAPI.doc(
+          args.arrayVal(0).asString.getOrElse(""),
+          args.arrayVal(1).asString.getOrElse("")
+        )
+        res.put("state", sync)
+        res.put("value", JSValue.fromJava(doc))
+      case "component.type" =>
+        val doc = arch.componentAPI.`type`(
+          args.arrayVal(0).asString.getOrElse("")
+        )
+        res.put("state", sync)
+        res.put("value", JSValue.fromJava(doc))
       case x =>
         res.put("state", error)
         res.put("value", JSStringValue(s"Unknown bios call: $x"))

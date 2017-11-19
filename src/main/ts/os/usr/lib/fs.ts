@@ -11,7 +11,7 @@ class File {
     this.fs.close(this.handle);
   }
 
-  read(count?: number): string {
+  read(count?: number): Promise<string> {
     return this.fs.read(this.handle, count || Math.pow(2, 16));
   }
 
@@ -28,20 +28,20 @@ export class FileSystem {
   constructor(private root: FilesystemComponentAPI) {
   }
 
-  open(filePath: string, mode: string = 'r'): File {
+  async open(filePath: string, mode: string = 'r'): Promise<File | null> {
     if (!this.exists(filePath)) return null;
-    let handle = this.root.open(filePath, mode);
+    let handle = await this.root.open(filePath, mode);
     if (!handle) return null;
     return new File(this.root, handle);
   }
 
-  exists(filePath: string): boolean {
+  exists(filePath: string): Promise<boolean> {
     return this.root.exists(filePath);
   }
 
-  findInPathString(pathString: string, toFind: string): string {
+  async findInPathString(pathString: string, toFind: string): Promise<string | null> {
     let toFindWithExt = toFind.indexOf('.js') < 0 ? toFind + '.js' : toFind;
-    if (path.isAbsolute(toFindWithExt)) return this.exists(toFindWithExt) ? toFindWithExt : null;
+    if (path.isAbsolute(toFindWithExt)) return (await this.exists(toFindWithExt)) ? toFindWithExt : null;
 
     let split = pathString.split(path.delimiter);
     for (let i = 0; i < split.length; i++) {

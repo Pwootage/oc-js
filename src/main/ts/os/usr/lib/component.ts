@@ -2,15 +2,15 @@ class ComponentAPI {
   constructor() {
   }
 
-  first(type:string):any {
+  first(type:string): Promise<any> {
     return $bios.component.first(type);
   }
 
-  all(type:string):any[] {
-    return $bios.component.list(type).map(v => $bios.component.proxy(v.uuid));
+  async all(type:string): Promise<any[]> {
+    return (await $bios.component.list(type))
+              .map(v => $bios.component.proxy(v.uuid));
   }
 }
 
 export const component = new ComponentAPI();
 export default component;
-

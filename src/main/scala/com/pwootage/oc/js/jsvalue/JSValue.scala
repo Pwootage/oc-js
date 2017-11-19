@@ -98,7 +98,7 @@ trait JSValue {
   /**
     * Converts this to a simple java type. Note this will return None for non-basic types!
     */
-  def asSimpleJava: Option[AnyRef] = None
+  def asSimpleJava: AnyRef
 
   def toJSON: String
 }
@@ -106,7 +106,7 @@ trait JSValue {
 case class JSStringValue(value: String) extends JSValue {
   override def asString = Some(value)
 
-  override def asSimpleJava = Some(value)
+  override def asSimpleJava: String = value
 
   override def toJSON = JSValue.gson.toJson(value)
 }
@@ -115,7 +115,7 @@ case class JSDoubleValue(value: Double) extends JSValue {
 
   override def asDouble = Some(value)
 
-  override def asSimpleJava: Some[java.lang.Double] = Some(value)
+  override def asSimpleJava: java.lang.Double = value
 
   override def toJSON = s"$value"
 }
@@ -123,7 +123,7 @@ case class JSDoubleValue(value: Double) extends JSValue {
 case class JSBooleanValue(value: Boolean) extends JSValue {
   override def asBoolean = Some(value)
 
-  override def asSimpleJava: Some[java.lang.Boolean] = Some(value)
+  override def asSimpleJava: java.lang.Boolean = value
 
   override def toJSON = if (value) "true" else "false"
 }
@@ -139,13 +139,19 @@ case class JSArray(value: Array[JSValue]) extends JSValue {
 
   override def asArray = Some(value)
 
-  override def asSimpleJava = Some(value.flatMap(_.asSimpleJava))
+  override def asSimpleJava = value.map(_.asSimpleJava)
 
   override def toJSON = s"[${value.map(_.toJSON).mkString(",")}]"
 }
 
 case class JSMap(value: util.HashMap[String, JSValue]) extends JSValue {
   override def property(name: String) = value.getOrDefault(name, JSNull)
+
+  override def asSimpleJava: util.HashMap[String, AnyRef] = {
+    val res = new util.HashMap[String, AnyRef]()
+    value.entrySet().foreach(v => res.put(v.getKey, v.getValue.asSimpleJava))
+    res
+  }
 
   override def toJSON = "{" +
     value.entrySet()
@@ -156,4 +162,6 @@ case class JSMap(value: util.HashMap[String, JSValue]) extends JSValue {
 
 case object JSNull extends JSValue {
   override def toJSON = "null"
+
+  override def asSimpleJava = null
 }

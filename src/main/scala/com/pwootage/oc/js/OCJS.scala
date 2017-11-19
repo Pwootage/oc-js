@@ -65,7 +65,7 @@ object OCJS {
         log.info(pid)
       }
     }
-    t.scheduleAtFixedRate(task, 2000, 2000)
+//    t.scheduleAtFixedRate(task, 2000, 2000)
   }
 
   @EventHandler

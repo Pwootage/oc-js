@@ -3,67 +3,67 @@ export interface ComponentBase {
 }
 
 export interface EEPROMComponentAPI extends ComponentBase {
-  get(): string
-  set(data: string): void
-  getLabel(): string
-  setLabel(data: string): void
-  getSize(): number
-  getData(): string
-  setData(data: string): void
-  getChecksum(): string
-  makeReadonly(checksum: string): boolean
+  get(): Promise<string>
+  set(data: string): Promise<void>
+  getLabel(): Promise<string>
+  setLabel(data: string): Promise<void>
+  getSize(): Promise<number>
+  getData(): Promise<string>
+  setData(data: string): Promise<void>
+  getChecksum(): Promise<string>
+  makeReadonly(checksum: string): Promise<boolean>
 }
 
 export interface FilesystemComponentAPI extends ComponentBase {
-  spaceUsed(): number
-  open(path: string, mode?: string): number
-  seek(handle: number, whence: string, offset: number): number
-  makeDirectory(path: string): boolean
-  exists(path: string): boolean
-  isReadOnly(): boolean
-  write(handle: number, value: string): boolean
-  spaceTotal(): number
-  isDirectory(path: string): boolean
-  rename(from: string, to: string): boolean
-  list(path: string): string[]
-  lastModified(path: string): number
-  getLabel(): string
-  remove(path: string): boolean
-  close(handle: number): void
-  size(path: string): number
-  read(handle: number, count: number): string
-  setLabel(value: string): string
+  spaceUsed(): Promise<number>
+  open(path: string, mode?: string): Promise<number>
+  seek(handle: number, whence: string, offset: number): Promise<number>
+  makeDirectory(path: string): Promise<boolean>
+  exists(path: string): Promise<boolean>
+  isReadOnly(): Promise<boolean>
+  write(handle: number, value: string): Promise<boolean>
+  spaceTotal(): Promise<number>
+  isDirectory(path: string): Promise<boolean>
+  rename(from: string, to: string): Promise<boolean>
+  list(path: string): Promise<string[]>
+  lastModified(path: string): Promise<number>
+  getLabel(): Promise<string>
+  remove(path: string): Promise<boolean>
+  close(handle: number): Promise<void>
+  size(path: string): Promise<number>
+  read(handle: number, count: number): Promise<string>
+  setLabel(value: string): Promise<string>
 }
 
 export interface GPUComponent extends ComponentBase {
-  bind(address: string): boolean
-  getScreen(): string
-  getBackground(): number
-  setBackground(color: number, pallete?: boolean): number
-  getForeground(): number
-  setForeground(color: number, pallete?: boolean): number
-  getPaletteColor(index: number): number
-  getPaletteColor(index: number, value: number): number
-  maxDepth(): number
-  getDepth(): number
-  setDepth(depth: number): number
-  maxResolution(): number[]
-  getResolution(): number[]
-  setResolution(width: number, height: number): void
-  get(x: number, y: number): any[]
-  set(x: number, y: number, value: string, vertical?: boolean): boolean
-  copy(x: number, y: number, width: number, height: number, tx: number, ty: number): boolean
-  fill(x: number, y: number, width: number, height: number, char: string): boolean
+  bind(address: string): Promise<boolean>
+  getScreen(): Promise<string>
+  getBackground(): Promise<number>
+  setBackground(color: number, pallete?: boolean): Promise<number>
+  getForeground(): Promise<number>
+  setForeground(color: number, pallete?: boolean): Promise<number>
+  getPaletteColor(index: number): Promise<number>
+  getPaletteColor(index: number, value: number): Promise<number>
+  maxDepth(): Promise<number>
+  getDepth(): Promise<number>
+  setDepth(depth: number): Promise<number>
+  maxResolution(): Promise<number[]>
+  getResolution(): Promise<number[]>
+  setResolution(width: number, height: number): Promise<void>
+  get(x: number, y: number): Promise<any[]>
+  set(x: number, y: number, value: string, vertical?: boolean): Promise<boolean>
+  copy(x: number, y: number, width: number, height: number, tx: number, ty: number): Promise<boolean>
+  fill(x: number, y: number, width: number, height: number, char: string): Promise<boolean>
 }
 
 export interface ScreenComponent extends ComponentBase {
-  isOn(): boolean
-  turnOn(): boolean
-  turnOff(): boolean
-  getAspectRatio(): number[]
-  getKeyboards(): string[]
-  setPrecise(enabled: boolean): boolean
-  isPrecise(): boolean
-  setTouchModeInverted(enabled: boolean): boolean
-  isTouchModeInverted(): boolean
+  isOn(): Promise<boolean>
+  turnOn(): Promise<boolean>
+  turnOff(): Promise<boolean>
+  getAspectRatio(): Promise<number[]>
+  getKeyboards(): Promise<string[]>
+  setPrecise(enabled: boolean): Promise<boolean>
+  isPrecise(): Promise<boolean>
+  setTouchModeInverted(enabled: boolean): Promise<boolean>
+  isTouchModeInverted(): Promise<boolean>
 }

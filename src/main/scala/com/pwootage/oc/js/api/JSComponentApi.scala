@@ -33,17 +33,25 @@ class JSComponentApi(machine: Machine, connectedFuture: Future[Unit]) {
   }
 
   def methods(address: String): util.Map[String, util.Map[String, Any]] = withComponent(address) { comp =>
-    machine.methods(comp.host).map(t => {
+    val methodsRes = new util.HashMap[String, util.Map[String,Any]]()
+
+    machine.methods(comp.host).foreach(t => {
       val (name, callback) = t
-      (name, Map[String, Any](
-        "name" -> name,
-        "doc" -> callback.doc(),
-        "direct" -> callback.direct(),
-        "limit" -> callback.limit(),
-        "getter" -> callback.getter(),
-        "setter" -> callback.setter()
-      ).asJava)
-    }).toMap.asJava
+      val methodRes = new util.HashMap[String, Any]()
+      methodRes.put("name", name)
+      methodRes.put("doc", callback.doc())
+      methodRes.put("direct", callback.direct())
+      methodRes.put("limit", callback.limit())
+      methodRes.put("getter", callback.getter())
+      methodRes.put("setter", callback.setter())
+      methodsRes.put(name, methodRes);
+    })
+
+    methodsRes
+  }
+
+  def invoke(address: String, method: String, args: Array[AnyRef]): Array[AnyRef] = withComponent(address) { comp =>
+    comp.invoke(method, machine, args:_*)
   }
 
   def `type`(address: String): String = connected { () =>

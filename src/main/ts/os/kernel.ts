@@ -1,19 +1,19 @@
-(function () {
+(() => {
   //Load the require() function
-  (function () {
-    let handle = $bios.bootFS.open('/usr/kernel/require.js', 'r');
+  (async () => {
+    let handle = await $bios.bootFS.open('/usr/kernel/require.js', 'r');
     let src = '';
     let read: string;
-    while (read = $bios.bootFS.read(handle, 512)) src += read;
-    $bios.bootFS.close(handle);
-    return $bios.compile('require.js', src);
-  })();
+    while (read = await $bios.bootFS.read(handle, 512)) src += read;
+    await $bios.bootFS.close(handle);
+    // return $bios.compile('require.js', src);
+  })().then(async () => {
+    //Load the OS
+    // let os = require('os');
 
-  //Load the OS
-  let os = require('os');
-
-  while (true) {
-    let sig = $bios.computer.signal();
-    $bios.computer.sleep(0.05);
-  }
+    while (true) {
+      let sig = await $bios.computer.signal();
+      await $bios.computer.sleep(0.05);
+    }
+  });
 })();

@@ -9,12 +9,14 @@ Object.defineProperty(global, 'global', {
 })
 
 //Private interfaces
-type BiosCallType = "invoke" | "sleep";
-
 interface ComponentInvokeParams {
   address: string,
   name: string,
   args: any[]
+}
+
+interface CompileResult {
+  state: 'success' | 'error';
 }
 
 type BiosCallParams = [ComponentInvokeParams] | any[];
@@ -44,6 +46,7 @@ const callID = function*() {
     if (id >= Number.MAX_SAFE_INTEGER - 1) {
       id = 0;
     }
+    id++;
     while (biosCallResultStore.has(id)) {
       id++;
     }
@@ -61,6 +64,7 @@ class AsyncBiosCall {
     });
     // Auto-remove on resolve/reject
     this.promise.then(() => {
+      // $bios.log(`Resolved ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)}`)
       biosCallResultStore.delete(this.id);
     }).catch(() => {
       biosCallResultStore.delete(this.id);
@@ -82,6 +86,7 @@ function biosCall<T>(call: BiosCall): Promise<T> {
   if (result.state == 'error') {
     __biosError(result.value);
   } else if (result.state == 'sync') {
+    // $bios.log(`Sync result ${JSON.stringify(result)}`);
     __biosReturn({
         id: asyncCall.id,
         name: call.name,
@@ -129,12 +134,10 @@ class BiosComponentApiImpl implements BiosComponentApi {
   }
 
   async invoke(address: string, name: string, ...args: any[]): Promise<any | any[]> {
-    try {
-      //Have to use co-routine magic here just in case
-      //TODO: figure this out
-    } catch (e) {
-      throw new Error(`Error invoking ${name}: ${e.message}`);
-    }
+    return biosCall({
+      name: 'component.invoke',
+      args: [address, name, args]
+    });
   }
 
   async doc(address: string, name: string): Promise<string> {
@@ -158,7 +161,7 @@ class BiosComponentApiImpl implements BiosComponentApi {
     });
   }
 
-  async proxy(address: string): Promise<any> {
+  async proxy<T>(address: string): Promise<T | null> {
     const res: any = {};
     const methods = await this.methods(address);
     if (!methods) return null;
@@ -188,12 +191,13 @@ class BiosComponentApiImpl implements BiosComponentApi {
     return res;
   }
 
-  async first(type: string): Promise<any> {
-    const address = (await this.list())[0].uuid;
+  async first<T>(type: string): Promise<T | null> {
+    const list = await this.list(type);
+    const address = list[0] && list[0].uuid;
     if (!address) {
       return null;
     } else {
-      return $bios.component.proxy(address);
+      return $bios.component.proxy<T>(address);
     }
   }
 }
@@ -276,21 +280,22 @@ class BiosApiImpl implements BiosApi {
   bootFS: FilesystemComponentAPI;
 
   async crash(msg: string): Promise<void> {
-    // const gpu: GPUComponent = await $bios.component.first('gpu');
-    // const screen = await $bios.component.first('screen');
-    // if (gpu && screen) {
-    //   gpu.bind(screen.uuid);
-    // }
+    const gpu = await $bios.component.first<GPUComponent>('gpu');
+    const screen = await $bios.component.first<any>('screen');
+    if (gpu && screen) {
+      await gpu.bind(screen.uuid);
+      // await gpu.setBackground(0x0000FF, false);
+    }
     return biosCall<void>({
       name: 'bios.crash',
       args: [msg]
     });
   }
 
-  compile(filename: string, script: string): Promise<any> {
+  compile(filename: string, script: string): Promise<CompileResult> {
     return biosCall({
       name: 'bios.compile',
-      args: [filename, script]
+      args: [script, filename]
     });
   }
 
@@ -323,23 +328,19 @@ global.$bios = biosImpl;
 
 global.__bios_main = async function() {
   delete global.__bios_main;
-  let eeprom: EEPROMComponentAPI = await $bios.component.first('eeprom');
+  let eeprom = await $bios.component.first<EEPROMComponentAPI>('eeprom');
   if (!eeprom) {
-    $bios.crash('No eeprom!');
+    await $bios.crash('No eeprom!');
   } else {
     // Load eeprom main
     let eepromSrc = `
       (function(){
         global['__eeprom_main__'] = function() {
-          ${eeprom.get()};
+          ${await eeprom.get()};
         };
       })();`;
     $bios.compile('eeprom', eepromSrc);
     let main = global['__eeprom_main__'];
     delete global['__eeprom_main__'];
-
-    // Set up co-routine
-    //TODO: Figure this out
-    // biosImpl.kernelThread = new $bios.Thread(main)
   }
 }

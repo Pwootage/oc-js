@@ -24,8 +24,8 @@ declare global {
       [key: string]: ComponentMethodInfo;
     }>;
     type(address: string): Promise<string>;
-    proxy(address: string): Promise<any>;
-    first(type: string): Promise<any>;
+    proxy<T>(address: string): Promise<T | null>;
+    first<T>(type: string): Promise<T | null>;
   }
 
   interface BiosComputerApi {

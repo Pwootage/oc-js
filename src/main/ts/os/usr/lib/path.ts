@@ -65,7 +65,7 @@ function trimArray(arr: string[]) {
 const splitPathRe = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
 
 function posixSplitPath(filename: string): RegExpExecArray {
-  const out = splitPathRe.exec(filename);
+  const out = splitPathRe.exec(filename) as RegExpExecArray;
   out.shift();
   return out;
 }

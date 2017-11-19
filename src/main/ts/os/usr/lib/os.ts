@@ -6,17 +6,20 @@ class OS {
   term: Term;
 
   constructor() {
-    let gpu: GPUComponent = component.first('gpu');
-    let screen: ScreenComponent = component.first('screen');
+  }
+
+  async init(): Promise<void> {
+    let gpu: GPUComponent = await component.first('gpu');
+    let screen: ScreenComponent = await component.first('screen');
     gpu.bind(screen.uuid);
-    gpu.fill(0, 0, gpu.getResolution()[0] + 1, gpu.getResolution()[1] + 1, 'X');
+    gpu.fill(0, 0, (await gpu.getResolution())[0] + 1, (await gpu.getResolution())[1] + 1, 'X');
 
     this.term = new Term(gpu, {
       title: 'ocjs'
     });
 
     while (true) {
-      let sig = $bios.computer.signal();
+      let sig = await $bios.computer.signal();
       if (sig) {
         if (sig.name == 'key_down') {
           if (sig.args[2] == 208) { //down arrow
