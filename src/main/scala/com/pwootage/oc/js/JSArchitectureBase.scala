@@ -4,7 +4,6 @@ import java.util
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
 import com.pwootage.oc.js.jsvalue.{JSNull, JSValue}
-import com.pwootage.oc.js.v8.V8ExecutionContext
 import li.cil.oc.api.Driver
 import li.cil.oc.api.driver.item.Memory
 import li.cil.oc.api.machine.{Architecture, ExecutionResult, LimitReachedException, Machine}
@@ -34,6 +33,10 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   private var mainEngine: JSEngine = null
   val signalHandler = new OCSignalHandler
   private val componentInvoker = new ComponentInvoker
+
+  var biosInternalAPI: JSBiosInternalAPI = null
+  var componentAPI: JSComponentApi = null
+  var computerAPI: JSComputerApi = null
 
   // Methods for subclesses
 
@@ -78,16 +81,20 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
           |(function(exports, global){
           |${biosJS}
           |})({}, this)
-        """.stripMargin, V8ExecutionContext.BIOS)
-      println("Bios result: ", res)
-      println("Bios result (str)", res.toJSON)
+        """.stripMargin)
+      if (res.property("state").asString.exists(_.equals("error"))) {
+        println("Error starting bios: " + res.toJSON)
+        throw new RuntimeException("Failed to start: " + res.property("message"))
+      } else {
+        println("Bios result: " + res.toJSON)
+      }
 
       val bios = new util.HashMap[String, Object]()
 
       //Setup bios
-      bios.put("bios", new JSBiosInternalAPI(machine, mainEngine))
-      bios.put("component", new JSComponentApi(machine, connectedPromise.future))
-      bios.put("computer", new JSComputerApi(machine, signalHandler, mainEngine))
+      biosInternalAPI = new JSBiosInternalAPI(machine, mainEngine)
+      componentAPI = new JSComponentApi(machine, connectedPromise.future)
+      computerAPI = new JSComputerApi(machine, signalHandler, mainEngine)
 
       //thread is started in runThreaded() after it's been connected to the network
       _initialized = true
@@ -159,10 +166,10 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
           invoke(address, method, args) match {
             case x: InvokeResultComplete =>
               //We yeilded successfully, we can just run again
-              componentInvoker.setResult(JSValue.javaToJsValue(x.res))
+              componentInvoker.setResult(JSValue.fromJava(x.res))
               executeThreaded()
             case x: InvokeResultSyncCall =>
-              componentInvoker.callSync(() => JSValue.javaToJsValue(x.call))
+              componentInvoker.callSync(() => JSValue.fromJava(x.call))
               new ExecutionResult.SynchronizedCall
           }
       }

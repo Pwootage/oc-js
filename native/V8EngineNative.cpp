@@ -6,12 +6,14 @@
 #include <cstring>
 #include <iostream>
 #include <thread>
+#include <functional>
 
 using namespace v8;
 using namespace std;
 
 Platform *v8Platform = nullptr;
 jfieldID v8EngineNativeFID = nullptr;
+jmethodID v8EngineNative__call = nullptr;
 StartupData *icudtl_data;
 StartupData *natives_blob_data;
 StartupData *snapshot_blob_data;
@@ -55,6 +57,7 @@ void V8EngineNative::Initialize(JNIEnv *env, jclass clazz) {
 
   jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/v8/V8Engine");
   v8EngineNativeFID = env->GetFieldID(v8EngineClass, "v8EngineNative", "J");
+  v8EngineNative__call = env->GetMethodID(v8EngineClass, "__call", "(Ljava/lang/String;)Ljava/lang/String;");
 }
 
 V8EngineNative *V8EngineNative::getFromJava(JNIEnv *env, jobject obj) {
@@ -69,18 +72,32 @@ V8EngineNative::V8EngineNative(JNIEnv *env, jobject obj) {
   env->GetJavaVM(&javaVM);
   globalObjRef = env->NewGlobalRef(obj);
 
-  create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+  create_params.array_buffer_allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
   isolate = Isolate::New(create_params);
-
+  Locker locker(isolate);
   {
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
 
     //TODO: attach global stuff to this template
-    Local<ObjectTemplate> biosGlobal = ObjectTemplate::New(isolate);
-    biosContext.Reset(isolate, Context::New(isolate, nullptr, biosGlobal));
-    kernelContext.Reset(isolate, Context::New(isolate));
-    userContext.Reset(isolate, Context::New(isolate));
+    Local<ObjectTemplate> global = ObjectTemplate::New(isolate);
+    Local<ObjectTemplate> v8NativeTemplate = ObjectTemplate::New(isolate);
+    v8NativeTemplate->SetInternalFieldCount(1);
+    v8NativeTemplate->SetCallAsFunctionHandler(__call);
+    v8NativeTemplate->SetImmutableProto();
+
+
+    contextRef.Reset(isolate, Context::New(isolate, nullptr, global));
+    Local<Context> context = contextRef.Get(isolate);
+
+    Context::Scope context_scope(context);
+    Local<Object> v8Native = v8NativeTemplate->NewInstance(context).ToLocalChecked();
+    v8Native->SetInternalField(0, External::New(isolate, this));
+    context->Global()->Set(
+        context,
+        String::NewFromUtf8(isolate, "__bios_call", NewStringType::kNormal).ToLocalChecked(),
+        v8Native
+    ).ToChecked();
   }
 }
 
@@ -89,15 +106,13 @@ V8EngineNative::~V8EngineNative() {
   while (isolate->IsExecutionTerminating()) {
     this_thread::sleep_for(chrono::milliseconds(1));
   }
-  biosContext.Reset();
-  kernelContext.Reset();
-  userContext.Reset();
+  contextRef.Reset();
   isolate->Dispose();
   delete create_params.array_buffer_allocator;
 
 }
 
-unique_ptr<JNIEnv, function<void(JNIEnv *)>> V8EngineNative::getEnv() {
+V8EngineNative::JNIPtr V8EngineNative::getEnv() {
   bool detach = false;
   JNIEnv *env = nullptr;
   // double check it's all ok
@@ -111,20 +126,20 @@ unique_ptr<JNIEnv, function<void(JNIEnv *)>> V8EngineNative::getEnv() {
     detach = false;
   }
 
-  std::unique_ptr<JNIEnv, function<void(JNIEnv *)>> res(env, [this](JNIEnv *ptr) {
+  return JNIPtr(env, [this](JNIEnv *ptr) {
 //      if (detach) {
       this->javaVM->DetachCurrentThread();
 //      }
   });
-  return res;
 }
 
-v8::Local<v8::Value>
-V8EngineNative::compileAndExecute(jstring src, jstring filename, ExecutionContext executionContext) {
+Local<String>
+V8EngineNative::compileAndExecute(jstring src, jstring filename) {
   auto env = getEnv();
 
   Isolate::Scope isolate_scope(isolate);
   EscapableHandleScope handle_scope(isolate);
+  TryCatch try_catch(isolate);
   const char *srcCStr = env->GetStringUTFChars(src, JNI_FALSE);
   Local<String> srcStr = String::NewFromUtf8(isolate, srcCStr, NewStringType::kNormal).ToLocalChecked();
   env->ReleaseStringUTFChars(src, srcCStr);
@@ -133,128 +148,183 @@ V8EngineNative::compileAndExecute(jstring src, jstring filename, ExecutionContex
   Local<String> filenameStr = String::NewFromUtf8(isolate, filenameCStr, NewStringType::kNormal).ToLocalChecked();
   env->ReleaseStringUTFChars(filename, filenameCStr);
 
-  Local<Context> context;
-  switch (executionContext) {
-    case ExecutionContext::bios:
-      context = biosContext.Get(isolate);
-      break;
-    case ExecutionContext::kernel:
-      context = kernelContext.Get(isolate);
-      break;
-    case ExecutionContext::user:
-      context = userContext.Get(isolate);
-      break;
+  Local<Context> context = contextRef.Get(isolate);
+    Context::Scope contextScope(context);
+
+  ScriptOrigin origin(filenameStr);
+  MaybeLocal<Script> script = Script::Compile(context, srcStr, &origin);
+  if (script.IsEmpty() || script.ToLocalChecked().IsEmpty()) {
+    Local<Object> res = convertException(context, try_catch);
+    MaybeLocal<String> jsonStr = JSON::Stringify(context, res);
+    if (jsonStr.IsEmpty() || jsonStr.ToLocalChecked().IsEmpty()) {
+      return handle_scope.Escape(
+          String::NewFromUtf8(isolate, "{\"state\": \"error\", \"message\": \"Probably a threading problem...\"}", NewStringType::kNormal).ToLocalChecked());
+    } else {
+      return handle_scope.Escape(jsonStr.ToLocalChecked());
+    }
   }
 
-  Context::Scope contextScope(context);
-
-  TryCatch try_catch(isolate);
-  Local<Script> script = Script::Compile(srcStr, filenameStr);
-  if (script.IsEmpty()) {
-    return handle_scope.Escape(convertException(context, try_catch));
-  }
-
-  Local<Value> scriptResult = script->Run();
-  if (scriptResult.IsEmpty()) {
-    return handle_scope.Escape(convertException(context, try_catch));
+  MaybeLocal<Value> scriptResult = script.ToLocalChecked()->Run(context);
+  if (scriptResult.IsEmpty() || scriptResult.ToLocalChecked().IsEmpty()) {
+    Local<Value> res = convertException(context, try_catch);
+    Local<String> jsonStr = JSON::Stringify(context, res).ToLocalChecked();
+    return handle_scope.Escape(jsonStr);
   }
 
   Local<Object> res = Object::New(isolate);
   res->Set(
+      context,
       String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
       String::NewFromUtf8(isolate, "success", NewStringType::kNormal).ToLocalChecked()
-  );
+  ).ToChecked();
   res->Set(
+      context,
       String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
-      scriptResult
-  );
-  return handle_scope.Escape(res);
+      scriptResult.ToLocalChecked()
+  ).ToChecked();
+  Local<String> jsonStr = JSON::Stringify(context, res).ToLocalChecked();
+  return handle_scope.Escape(jsonStr);
 }
 
 Isolate *V8EngineNative::getIsolate() {
   return isolate;
 }
 
-Local<Value> V8EngineNative::convertException(Local<Context> &context, TryCatch &tryCatch) {
+Local<Object> V8EngineNative::convertException(Local<Context> context, TryCatch &tryCatch) {
   EscapableHandleScope handle_scope(isolate);
   Local<Message> message = tryCatch.Message();
   if (message.IsEmpty()) {
-    return handle_scope.Escape(Local<Value>());
+    return handle_scope.Escape(Object::New(isolate));
   }
 
   Local<Object> result = Object::New(isolate);
   result->Set(
+      context,
       String::NewFromUtf8(isolate, "state", NewStringType::kNormal).ToLocalChecked(),
       String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
-  );
+  ).ToChecked();
   result->Set(
+      context,
       String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
       message->GetScriptResourceName()
-  );
-  result->Set(
-      String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
-      message->GetSourceLine()
-  );
+  ).ToChecked();
+  MaybeLocal<String> sourceLine = message->GetSourceLine(context);
+  if (!sourceLine.IsEmpty() && !sourceLine.IsEmpty() && !sourceLine.ToLocalChecked().IsEmpty()) {
+    result->Set(
+        context,
+        String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
+        sourceLine.ToLocalChecked()
+    ).ToChecked();
+  }
   Maybe<int> line = message->GetLineNumber(context);
   if (line.IsJust()) {
     result->Set(
+        context,
         String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
         Integer::New(isolate, line.FromJust())
-    );
+    ).ToChecked();
   }
   Maybe<int> startCol = message->GetStartColumn(context);
   if (startCol.IsJust()) {
     result->Set(
+        context,
         String::NewFromUtf8(isolate, "start", NewStringType::kNormal).ToLocalChecked(),
         Integer::New(isolate, startCol.FromJust())
-    );
+    ).ToChecked();
   }
   Maybe<int> endCol = message->GetStartColumn(context);
   if (endCol.IsJust()) {
     result->Set(
+        context,
         String::NewFromUtf8(isolate, "end", NewStringType::kNormal).ToLocalChecked(),
         Integer::New(isolate, endCol.FromJust())
-    );
+    ).ToChecked();
   }
 
   Local<StackTrace> stackTrace = message->GetStackTrace();
   if (!stackTrace.IsEmpty()) {
     Local<Array> stackArray = Array::New(isolate, stackTrace->GetFrameCount());
-    for (uint32_t i = 0; i < stackTrace->GetFrameCount(); i++) {
+    for (uint32_t i = 0; i < static_cast<uint32_t>(stackTrace->GetFrameCount()); i++) {
       Local<StackFrame> frame = stackTrace->GetFrame(i);
       Local<Object> resFrame = Object::New(isolate);
       resFrame->Set(
+          context,
           String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
           frame->GetScriptName()
-      );
+      ).ToChecked();
       resFrame->Set(
+          context,
           String::NewFromUtf8(isolate, "function", NewStringType::kNormal).ToLocalChecked(),
           frame->GetFunctionName()
-      );
+      ).ToChecked();
       resFrame->Set(
+          context,
           String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
           Integer::New(isolate, frame->GetLineNumber())
-      );
+      ).ToChecked();
       resFrame->Set(
+          context,
           String::NewFromUtf8(isolate, "col", NewStringType::kNormal).ToLocalChecked(),
           Integer::New(isolate, frame->GetColumn())
-      );
-      stackArray->Set(i, resFrame);
+      ).ToChecked();
+      stackArray->Set(context, i, resFrame).ToChecked();
     }
 
     result->Set(
+        context,
         String::NewFromUtf8(isolate, "stacktrace", NewStringType::kNormal).ToLocalChecked(),
         stackArray
-    );
+    ).ToChecked();
   }
 
   result->Set(
+      context,
       String::NewFromUtf8(isolate, "origin", NewStringType::kNormal).ToLocalChecked(),
       message->GetScriptOrigin().ResourceName()
-  );
+  ).ToChecked();
   result->Set(
+      context,
       String::NewFromUtf8(isolate, "message", NewStringType::kNormal).ToLocalChecked(),
       message->Get()
-  );
+  ).ToChecked();
   return handle_scope.Escape(result);
+}
+
+void V8EngineNative::__call(const FunctionCallbackInfo<Value> &info) {
+  Local<Object> jsThis = info.Holder();
+  Local<External> wrap = Local<External>::Cast(jsThis->GetInternalField(0));
+  V8EngineNative *ptr = static_cast<V8EngineNative *>(wrap->Value());
+  HandleScope handle_scope(info.GetIsolate());
+
+  JNIPtr uniqueEnv = ptr->getEnv();
+  JNIEnv *env = uniqueEnv.get();
+
+  Local<Value> arg = info[0];
+  Local<String> json = JSON::Stringify(info.Holder()->CreationContext(), arg).ToLocalChecked();
+
+  String::Utf8Value jsonUTF8(info.GetIsolate(), json); // auto
+  jstring jsonJString = env->NewStringUTF(*jsonUTF8); // new
+  jstring resJString = static_cast<jstring>(env->CallObjectMethod(ptr->globalObjRef, v8EngineNative__call,
+                                                                  jsonJString)); //new
+
+  jboolean isCopy = false;
+  const char *resCStr;
+  if (resJString == nullptr) {
+    // For whatever reason, this happens once at death time? Not sure why. I never return null.
+    // Possibly an exception is thrown?
+    resCStr = "{\"state\": \"noop\", \"value\": \"Got null from java \"}";
+  } else {
+    resCStr = env->GetStringUTFChars(resJString, &isCopy);
+  } //new
+  printf("__call result: %s\n", resCStr);
+  fflush(stdout);
+  Local<String> resLocalStr = String::NewFromUtf8(info.GetIsolate(), resCStr, NewStringType::kNormal).ToLocalChecked();
+
+  if (resJString != nullptr) {
+    env->ReleaseStringUTFChars(resJString, resCStr); //del
+    env->DeleteLocalRef(resJString); // del
+  }
+  env->DeleteLocalRef(jsonJString); // del
+
+  info.GetReturnValue().Set(resLocalStr);
 }

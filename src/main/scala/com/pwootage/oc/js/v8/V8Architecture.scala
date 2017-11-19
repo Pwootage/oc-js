@@ -10,7 +10,7 @@ import li.cil.oc.api.machine.{Architecture, Machine}
 class V8Architecture(_machine: Machine) extends JSArchitectureBase(_machine) {
 
   override def createEngine(): JSEngine = {
-    new V8Engine()
+    new V8Engine(this)
   }
 
   override def setupSandbox(): Unit = {

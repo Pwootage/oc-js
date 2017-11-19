@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 # Compiler options
 add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
+add_compile_options(-O0 -g)
 
 # Libraries
 find_package(Java REQUIRED)

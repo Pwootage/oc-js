@@ -14,10 +14,17 @@ import scala.concurrent.duration._
 class JSComponentApi(machine: Machine, connectedFuture: Future[Unit]) {
   def list(name: String): util.List[util.Map[String, String]] = connected { () =>
     machine.components.synchronized {
-      machine.components().filter(t => t._2.contains(name)).map(t => Map(
-        "uuid" -> t._1,
-        "type" -> t._2
-      ).asJava).toList.asJava
+      val resList = new util.ArrayList[util.Map[String, String]]()
+      machine.components()
+        .filter(t => t._2.contains(name))
+        .map(t => {
+          val resMap = new util.HashMap[String, String]()
+          resMap.put("uuid", t._1)
+          resMap.put("type", t._2)
+          resMap
+        })
+        .foreach(resList.add(_))
+      resList
     }
   }
 

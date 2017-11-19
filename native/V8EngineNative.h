@@ -5,8 +5,10 @@
 #ifndef OCJS_V8ENGINENATIVE_H
 #define OCJS_V8ENGINENATIVE_H
 #define V8_DEPRECATION_WARNINGS
+#define V8_IMMINENT_DEPRECATION_WARNINGS
 #include <jni.h>
 #include <memory>
+#include <functional>
 #include "include/v8.h"
 #include "include/libplatform/libplatform.h"
 
@@ -17,11 +19,7 @@
  * */
 class V8EngineNative {
 public:
-    enum class ExecutionContext {
-        bios = 0,
-        kernel = 1,
-        user = 2
-    };
+    using JNIPtr = std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>>;
 
     V8EngineNative(JNIEnv *env, jobject obj);
     ~V8EngineNative();
@@ -31,19 +29,22 @@ public:
     static void setToJava(JNIEnv *env, jobject obj, V8EngineNative *data);
 
     v8::Isolate *getIsolate();
-    v8::Local<v8::Value> compileAndExecute(jstring src, jstring filename, ExecutionContext context);
+    v8::Local<v8::String> compileAndExecute(jstring src, jstring filename);
+
+    v8::Global<v8::Context> contextRef;
+    v8::Global<v8::Context> kernelContext;
+    v8::Global<v8::Context> userContext;
 private:
     JavaVM *javaVM;
     jobject globalObjRef;
 
     v8::Isolate::CreateParams create_params;
     v8::Isolate *isolate;
-    v8::Global<v8::Context> biosContext;
-    v8::Global<v8::Context> kernelContext;
-    v8::Global<v8::Context> userContext;
 
-    std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>> getEnv();
-    v8::Local<v8::Value> convertException(v8::Local<v8::Context> &context, v8::TryCatch &tryCatch);
+    JNIPtr getEnv();
+    v8::Local<v8::Object> convertException(v8::Local<v8::Context> context, v8::TryCatch &tryCatch);
+
+    static void __call(const v8::FunctionCallbackInfo<v8::Value>& info);
 };
 
 

@@ -48,7 +48,7 @@ object JSValue {
     }
   }
 
-  def javaToJsValue[T](obj: T): JSValue = {
+  def fromJava[T](obj: T): JSValue = {
     obj match {
       case x: java.lang.Float => JSDoubleValue(x.doubleValue())
       case x: java.lang.Double => JSDoubleValue(x.doubleValue())
@@ -62,7 +62,7 @@ object JSValue {
           override def accept(k: kt, v: vt): Unit = {
             k match {
               case x: String =>
-                val jsVal = javaToJsValue(v)
+                val jsVal = fromJava(v)
                 res.put(x, jsVal)
               case _ => //Do nothing
             }
@@ -70,7 +70,9 @@ object JSValue {
         })
         JSMap(res)
       case x: Array[AnyRef] =>
-        JSArray(x.map(javaToJsValue))
+        JSArray(x.map(fromJava))
+      case x: util.ArrayList[_] =>
+        JSArray(x.map(fromJava).toArray)
       case _ =>
         JSNull
     }
@@ -82,6 +84,8 @@ object JSValue {
   */
 trait JSValue {
   def property(name: String): JSValue = JSNull
+
+  def arrayVal(index: Int): JSValue = JSNull
 
   def asString: Option[String] = None
 
@@ -125,6 +129,14 @@ case class JSBooleanValue(value: Boolean) extends JSValue {
 }
 
 case class JSArray(value: Array[JSValue]) extends JSValue {
+  override def arrayVal(index: Int) = {
+    if (index >= 0 && index < value.length) {
+      value(index)
+    } else {
+      JSNull
+    }
+  }
+
   override def asArray = Some(value)
 
   override def asSimpleJava = Some(value.flatMap(_.asSimpleJava))

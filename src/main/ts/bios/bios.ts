@@ -1,5 +1,13 @@
 import { EEPROMComponentAPI, FilesystemComponentAPI, GPUComponent } from '../os/usr/lib/externalComponents';
 
+// Set up global ref
+Object.defineProperty(global, 'global', {
+  enumerable: false,
+  value: global,
+  writable: false,
+  configurable: false
+})
+
 //Private interfaces
 type BiosCallType = "invoke" | "sleep";
 
@@ -16,7 +24,18 @@ interface BiosCall {
   readonly args: BiosCallParams;
 }
 
-declare function __biosCall(asyncCall: AsyncBiosCall): void;
+interface BiosCallResult {
+  readonly state: 'error' | 'sync' | 'async' | 'noop';
+  readonly value: any;
+}
+
+interface BiosResult {
+  id: number;
+  name: string;
+  value: any
+}
+
+declare function __bios_call(call: BiosCall): string;
 
 const biosCallResultStore = new Map<number, AsyncBiosCall>();
 const callID = function*() {
@@ -57,9 +76,40 @@ class AsyncBiosCall {
 function biosCall<T>(call: BiosCall): Promise<T> {
   const asyncCall = new AsyncBiosCall(call);
   biosCallResultStore.set(asyncCall.id, asyncCall);
-  __biosCall(asyncCall);
+  const biosResJson = __bios_call(call);
+  const result: BiosCallResult = JSON.parse(biosResJson);
+
+  if (result.state == 'error') {
+    __biosError(result.value);
+  } else if (result.state == 'sync') {
+    __biosReturn({
+        id: asyncCall.id,
+        name: call.name,
+        value: result.value
+      });
+  } else if (result.state == 'noop') {
+    // Intentionally do nothing
+  } else {
+    // Async will be called eventually(tm)
+  }
+
   return asyncCall.promise;
 }
+
+function __biosReturn(res: BiosResult) {
+  const biosCallback = biosCallResultStore.get(res.id);
+  if (biosCallback) {
+    biosCallback.resolve(res.value);
+  } else {
+    $bios.crash(`Couldn't find bios callback for call ${res.name}#${res.id}`);
+  }
+};
+global.__biosReturn = __biosReturn;
+
+function __biosError(error: string) {
+  $bios.crash(`Bios error: ${error}`);
+}
+global.__biosError = __biosError;
 
 class BiosComponentApiImpl implements BiosComponentApi {
   async list(filter?: string | RegExp): Promise<ComponentInfo[]> {
@@ -226,11 +276,11 @@ class BiosApiImpl implements BiosApi {
   bootFS: FilesystemComponentAPI;
 
   async crash(msg: string): Promise<void> {
-    const gpu: GPUComponent = await $bios.component.first('gpu');
-    const screen = await $bios.component.first('screen');
-    if (gpu && screen) {
-      gpu.bind(screen.uuid);
-    }
+    // const gpu: GPUComponent = await $bios.component.first('gpu');
+    // const screen = await $bios.component.first('screen');
+    // if (gpu && screen) {
+    //   gpu.bind(screen.uuid);
+    // }
     return biosCall<void>({
       name: 'bios.crash',
       args: [msg]
@@ -271,7 +321,8 @@ class BiosApiImpl implements BiosApi {
 let biosImpl = new BiosApiImpl();
 global.$bios = biosImpl;
 
-global.__main = async function() {
+global.__bios_main = async function() {
+  delete global.__bios_main;
   let eeprom: EEPROMComponentAPI = await $bios.component.first('eeprom');
   if (!eeprom) {
     $bios.crash('No eeprom!');
