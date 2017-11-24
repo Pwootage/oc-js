@@ -3,7 +3,7 @@ export interface DeregFunction {
   ():void
 }
 
-type EventHandler = Function;
+type EventHandler = (...args: any[]) => void;
 
 export class EventEmitter {
   private listeners: { [key:string]:EventHandler[] };
@@ -17,7 +17,7 @@ export class EventEmitter {
   }
 
   emit(name:string, ...args:any[]) {
-    (this.listeners[name] || []).forEach(v => v(args));
+    (this.listeners[name] || []).forEach(v => v(...args));
   }
 
   deregister(name: string, fn: EventHandler) {

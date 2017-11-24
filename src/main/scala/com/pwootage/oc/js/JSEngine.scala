@@ -1,6 +1,7 @@
 package com.pwootage.oc.js
 
 import com.pwootage.oc.js.jsvalue.JSValue
+import li.cil.oc.api.machine.Signal
 
 trait JSEngine {
   def started: Boolean
@@ -8,7 +9,7 @@ trait JSEngine {
   def destroy()
   def evalWithName(filename: String, js: String): JSValue
 
-  def executeThreaded(synResult: JSValue): JSValue
+  def executeThreaded(signal: Option[Signal], synResult: JSValue): RunThreadedResult
   def setMaxMemory(max: Int): Unit
   def maxMemory: Int
   def usedMemory: Int

@@ -15,7 +15,6 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
   }
 
   def compile(name: String, script: String): JSValue = {
-    //TODO: Allow this to set context?
     scriptEngine.evalWithName(name, script)
   }
 }

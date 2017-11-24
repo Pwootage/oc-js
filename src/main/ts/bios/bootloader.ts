@@ -1,23 +1,38 @@
 import {EEPROMComponentAPI, FilesystemComponentAPI} from '../os/usr/lib/externalComponents';
 
-(function () {
-  var eeprom: EEPROMComponentAPI = $bios.component.first('eeprom');
-  let bootAddr = eeprom.getData();
-  let fs: FilesystemComponentAPI = $bios.component.proxy(bootAddr);
+global.__eeprom__ = async function() {
+  var eeprom = await $bios.component.first<EEPROMComponentAPI>('eeprom');
+  if (!eeprom) {
+    await $bios.crash('No EEPROM');
+    return;
+  }
+  let bootAddr = await eeprom.getData();
+  let fs = await $bios.component.proxy<FilesystemComponentAPI>(bootAddr);
   if (!fs) {
-    fs = $bios.component.list('filesystem')
-      .map(v => <FilesystemComponentAPI>$bios.component.proxy(v.uuid))
-      .filter(v => v.exists('/kernel.js'))[0];
-    if (fs) eeprom.setData(fs.uuid);
+    const filesystems = await $bios.component.list('filesystem');
+    for (const fsComp of filesystems) {
+      const fsToCheck = await $bios.component.proxy<FilesystemComponentAPI>(fsComp.uuid);
+      if (fsToCheck) {
+        const exists = await fsToCheck.exists('/kernel.js');
+        if (exists) {
+          fs = fsToCheck;
+          break;
+        }
+      }
+    }
+  }
+  if (fs) {
+    eeprom.setData(fs.uuid);
   }
   if (!fs) {
-    $bios.crash('No bootable medium found.');
+    await $bios.crash('No bootable medium found.');
+    return;
   }
   $bios.bootFS = fs;
-  let handle = fs.open('kernel.js', 'r');
+  let handle = await fs.open('/kernel.js', 'r');
   let kernel = '';
   let read: string;
-  while (read = fs.read(handle, 512)) kernel += read;
+  while (read = await fs.read(handle, 512)) kernel += read;
   fs.close(handle);
   $bios.compile('kernel.js', kernel);
-})();
+}

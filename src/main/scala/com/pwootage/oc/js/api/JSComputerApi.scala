@@ -8,22 +8,7 @@ import li.cil.oc.api.network.Connector
 
 import scala.collection.JavaConversions._
 
-class JSComputerApi(machine: Machine, sync: OCSignalHandler, engine: JSEngine) {
-  def signal(): util.Map[String, AnyRef] = {
-    if (Thread.interrupted()) {
-      throw new InterruptedException("Interrupted; assuming javascript should be shut down")
-    }
-    sync.pull() match {
-      case Some(x) => Map(
-        "name" -> x.name(),
-        "args" -> JSUtils.scalaToJS(x.args())
-      )
-      case None => null
-    }
-  }
-
-  //TODO: Push signal?
-
+class JSComputerApi(machine: Machine, engine: JSEngine) {
   def address(): String = machine.node().address()
 
   def tmpAddress(): String = machine.tmpAddress()

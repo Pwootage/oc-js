@@ -10,10 +10,5 @@
   })().then(async () => {
     //Load the OS
     // let os = require('os');
-
-    while (true) {
-      let sig = await $bios.computer.signal();
-      await $bios.computer.sleep(0.05);
-    }
   });
 })();

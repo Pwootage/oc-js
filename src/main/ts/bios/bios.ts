@@ -26,9 +26,14 @@ interface BiosCall {
   readonly args: BiosCallParams;
 }
 
+interface BiosCallToJava extends BiosCall {
+  readonly id: number;
+}
+
 interface BiosCallResult {
   readonly state: 'error' | 'sync' | 'async' | 'noop';
   readonly value: any;
+  readonly id: number;
 }
 
 interface BiosResult {
@@ -37,7 +42,19 @@ interface BiosResult {
   value: any
 }
 
-declare function __bios_call(call: BiosCall): string;
+type BiosYield = BiosYieldSleep | BiosYieldCall;
+
+interface BiosYieldCall {
+  type: 'call';
+  arg: BiosCallToJava;
+}
+
+interface BiosYieldSleep {
+  type: 'sleep';
+  arg: number;
+}
+
+declare function __bios_call(call: BiosCallToJava): string;
 
 const biosCallResultStore = new Map<number, AsyncBiosCall>();
 const callID = function*() {
@@ -64,7 +81,7 @@ class AsyncBiosCall {
     });
     // Auto-remove on resolve/reject
     this.promise.then(() => {
-      // $bios.log(`Resolved ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)}`)
+      $bios.log(`Resolved ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)}`)
       biosCallResultStore.delete(this.id);
     }).catch(() => {
       biosCallResultStore.delete(this.id);
@@ -80,16 +97,23 @@ class AsyncBiosCall {
 function biosCall<T>(call: BiosCall): Promise<T> {
   const asyncCall = new AsyncBiosCall(call);
   biosCallResultStore.set(asyncCall.id, asyncCall);
-  const biosResJson = __bios_call(call);
+  const biosResJson = __bios_call({
+    ...call,
+    id: asyncCall.id
+  });
   const result: BiosCallResult = JSON.parse(biosResJson);
+  handleBiosCallResult(asyncCall, result);
+  return asyncCall.promise;
+}
 
+function handleBiosCallResult(asyncCall: AsyncBiosCall, result: BiosCallResult) {
   if (result.state == 'error') {
     __biosError(result.value);
   } else if (result.state == 'sync') {
     // $bios.log(`Sync result ${JSON.stringify(result)}`);
     __biosReturn({
         id: asyncCall.id,
-        name: call.name,
+        name: asyncCall.call.name,
         value: result.value
       });
   } else if (result.state == 'noop') {
@@ -97,8 +121,6 @@ function biosCall<T>(call: BiosCall): Promise<T> {
   } else {
     // Async will be called eventually(tm)
   }
-
-  return asyncCall.promise;
 }
 
 function __biosReturn(res: BiosResult) {
@@ -109,12 +131,62 @@ function __biosReturn(res: BiosResult) {
     $bios.crash(`Couldn't find bios callback for call ${res.name}#${res.id}`);
   }
 };
-global.__biosReturn = __biosReturn;
+Object.defineProperty(global, '__biosReturn', {
+  enumerable: false,
+  value: __biosReturn,
+  writable: false,
+  configurable: false
+});
 
 function __biosError(error: string) {
   $bios.crash(`Bios error: ${error}`);
 }
-global.__biosError = __biosError;
+Object.defineProperty(global, '__biosError', {
+  enumerable: false,
+  value: __biosError,
+  writable: false,
+  configurable: false
+});
+
+function __biosRunThreaded(signal: Signal | null, result: BiosCallResult | null): BiosYield {
+  if (result) {
+    const asyncCall = biosCallResultStore.get(result.id);
+    if (asyncCall) {
+      handleBiosCallResult(asyncCall, result);
+    } else {
+      $bios.crash(`Unhandled response in __biosRunThreaded: ${JSON.stringify(result)}`);
+    }
+  }
+
+  if (signal) {
+    $bios.signals.emit('signal', signal);
+    $bios.signals.emit(signal.name, ...signal.args);
+  }
+
+  // Re-do any outstanding request
+  const outstandingRequests = [...biosCallResultStore.entries()];
+  if (outstandingRequests.length > 0) {
+    const [id, asyncCall] = outstandingRequests[0];
+    return {
+      type: 'call',
+      arg: {
+        ...asyncCall.call,
+        id
+      }
+    };
+  } else {
+    return {
+      type: 'sleep',
+      arg: 0.05
+    }
+  }
+}
+Object.defineProperty(global, '__biosRunThreaded', {
+  enumerable: false,
+  value: __biosRunThreaded,
+  writable: false,
+  configurable: false
+});
 
 class BiosComponentApiImpl implements BiosComponentApi {
   async list(filter?: string | RegExp): Promise<ComponentInfo[]> {
@@ -134,9 +206,18 @@ class BiosComponentApiImpl implements BiosComponentApi {
   }
 
   async invoke(address: string, name: string, ...args: any[]): Promise<any | any[]> {
-    return biosCall({
+    return biosCall<any[]>({
       name: 'component.invoke',
       args: [address, name, args]
+    }).then(res => {
+      // $bios.log('Component invoke res' + JSON.stringify(res));
+      if (res.length == 0) {
+        return;
+      } else if (res.length == 1) {
+        return res[0];
+      } else {
+        return res;
+      }
     });
   }
 
@@ -203,25 +284,6 @@ class BiosComponentApiImpl implements BiosComponentApi {
 }
 
 class BiosComputerApiImpl implements BiosComputerApi {
-  async signal(): Promise<Signal | null> {
-    const sig = await biosCall<Signal | null | undefined>({
-      name: 'computer.signal',
-      args: []
-    });
-    if (sig) {
-      return sig;
-    } else {
-      return null;
-    }
-  }
-
-  sleep(time: number): Promise<void> {
-    return biosCall({
-      name: 'computer.sleep',
-      args: [time]
-    });
-  }
-
   address(): Promise<string> {
     return biosCall({
       name: 'computer.address',
@@ -273,11 +335,43 @@ class BiosComputerApiImpl implements BiosComputerApi {
 
 }
 
+type DeregFunction = () => void;
+type EventHandler = (...args: any[]) => void;
+
+class EventEmitter {
+  private listeners = new Map<string, EventHandler[]>();
+
+  constructor() {}
+
+  on(name:string, fn: EventHandler): DeregFunction {
+    let arr = this.listeners.get(name) || [];
+    arr.push(fn);
+    this.listeners.set(name, arr);
+    return this.deregister.bind(this, name, fn);
+  }
+
+  emit(name:string, ...args: any[]): void {
+    (this.listeners.get(name) || []).forEach(v => v(...args));
+  }
+
+  deregister(name: string, fn: EventHandler): void {
+    let arr = this.listeners.get(name) || [];
+    arr = arr.filter(v => v !== fn);
+    if (arr.length == 0) {
+      this.listeners.delete(name);
+    } else {
+      this.listeners.set(name, arr);
+    }
+  }
+}
+global.EventEmitter = EventEmitter;
+
 class BiosApiImpl implements BiosApi {
   component = new BiosComponentApiImpl();
   computer = new BiosComputerApiImpl();
   //Set by the bootloader
   bootFS: FilesystemComponentAPI;
+  signals = new EventEmitter();
 
   async crash(msg: string): Promise<void> {
     const gpu = await $bios.component.first<GPUComponent>('gpu');
@@ -295,7 +389,7 @@ class BiosApiImpl implements BiosApi {
   compile(filename: string, script: string): Promise<CompileResult> {
     return biosCall({
       name: 'bios.compile',
-      args: [script, filename]
+      args: [filename, script]
     });
   }
 
@@ -304,22 +398,6 @@ class BiosApiImpl implements BiosApi {
       name: 'bios.log',
       args: [message]
     });
-  }
-
-  // To be called from oc-js only!
-  // TODO: make available only from js (using native code)
-  private __runThreaded__(res?: any) {
-    return {
-      type: "sleep",
-      arg: 100
-    };
-    //TODO: implement
-    // let biosYield = Thread.resume(this.kernelThread, res) as BiosYield;
-    // if (biosYield) {
-    //   return biosYield;
-    // } else {
-    //   this.crash("Invalid kernel yield; Probably crashed or ended execution (no yield)")
-    // }
   }
 }
 
@@ -333,14 +411,12 @@ global.__bios_main = async function() {
     await $bios.crash('No eeprom!');
   } else {
     // Load eeprom main
-    let eepromSrc = `
-      (function(){
-        global['__eeprom_main__'] = function() {
-          ${await eeprom.get()};
-        };
-      })();`;
-    $bios.compile('eeprom', eepromSrc);
-    let main = global['__eeprom_main__'];
-    delete global['__eeprom_main__'];
+    let eepromSrc = await eeprom.get();
+    const result = await $bios.compile('eeprom', `(function(global, exports){
+      ${eepromSrc}
+    })(global, {})`);
+    await $bios.log(`EEPROM compile result: ${JSON.stringify(result)}`)
+    await global.__eeprom__();
+    delete global.__eeprom__;
   }
 }

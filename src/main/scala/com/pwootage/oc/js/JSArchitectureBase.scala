@@ -3,10 +3,10 @@ package com.pwootage.oc.js
 import java.util
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
-import com.pwootage.oc.js.jsvalue.{JSNull, JSValue}
+import com.pwootage.oc.js.jsvalue._
 import li.cil.oc.api.Driver
 import li.cil.oc.api.driver.item.Memory
-import li.cil.oc.api.machine.{Architecture, ExecutionResult, LimitReachedException, Machine}
+import li.cil.oc.api.machine._
 import li.cil.oc.api.network.Component
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
@@ -22,6 +22,12 @@ case class InvokeResultComplete(res: Array[AnyRef]) extends InvokeResult
 
 case class InvokeResultSyncCall(call: () => Array[AnyRef]) extends InvokeResult
 
+trait RunThreadedResult
+
+case class RunThreadedResultSleep(time: Int) extends RunThreadedResult
+
+case class RunThreadedResultInvoke(id: Double, address: String, method: String, args: Array[JSValue]) extends RunThreadedResult
+
 /**
   * JS base
   */
@@ -31,7 +37,6 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   private var connectedPromise: Promise[Unit] = Promise()
 
   private var mainEngine: JSEngine = null
-  val signalHandler = new OCSignalHandler
   private val componentInvoker = new ComponentInvoker
 
   var biosInternalAPI: JSBiosInternalAPI = null
@@ -78,9 +83,9 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
       val biosJS = StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js")
       val res = mainEngine.evalWithName("bios.js",
         s"""
-          |(function(exports, global){
-          |${biosJS}
-          |})({}, this)
+           |(function(exports, global){
+           |${biosJS}
+           |})({}, this)
         """.stripMargin)
       if (res.property("state").asString.exists(_.equals("error"))) {
         println("Error starting bios: " + res.toJSON)
@@ -94,7 +99,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
       //Setup bios
       biosInternalAPI = new JSBiosInternalAPI(machine, mainEngine)
       componentAPI = new JSComponentApi(machine, connectedPromise.future)
-      computerAPI = new JSComputerApi(machine, signalHandler, mainEngine)
+      computerAPI = new JSComputerApi(machine, mainEngine)
 
       //thread is started in runThreaded() after it's been connected to the network
       _initialized = true
@@ -150,26 +155,29 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   }
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
-    @tailrec def executeThreaded(): ExecutionResult = {
-      val jsRunResult = mainEngine.executeThreaded(componentInvoker.result().getOrElse(JSNull))
-      val yieldType = jsRunResult.property("type").asString.getOrElse(throw new Exception("RunThreaded did not yield!"))
-      yieldType match {
-        case "sleep" =>
-          val sleepAmount = jsRunResult.property("arg").asDouble
-            .getOrElse(1.0)
-            .toInt
+    @tailrec def executeThreaded(signal: Option[Signal]): ExecutionResult = {
+      val jsRunResult = mainEngine.executeThreaded(signal, componentInvoker.result().getOrElse(JSNull))
+      jsRunResult match {
+        case RunThreadedResultSleep(sleepAmount) =>
           new ExecutionResult.Sleep(sleepAmount)
-        case "invoke" =>
-          val address = jsRunResult.property("arg").property("address").asString.getOrElse("<no address passed>")
-          val method = jsRunResult.property("arg").property("method").asString.getOrElse("<no method passed>")
-          val args = jsRunResult.property("arg").property("args").asArray.getOrElse(Array())
+        case RunThreadedResultInvoke(id, address, method, args) =>
           invoke(address, method, args) match {
             case x: InvokeResultComplete =>
               //We yeilded successfully, we can just run again
-              componentInvoker.setResult(JSValue.fromJava(x.res))
-              executeThreaded()
+              val resMap = new util.HashMap[String, JSValue]()
+              resMap.put("state", JSStringValue("sync"))
+              resMap.put("value", JSValue.fromJava(x.res))
+              resMap.put("id", JSDoubleValue(id))
+              componentInvoker.setResult(JSMap(resMap))
+              executeThreaded(None)
             case x: InvokeResultSyncCall =>
-              componentInvoker.callSync(() => JSValue.fromJava(x.call))
+              componentInvoker.callSync(() => {
+                val resMap = new util.HashMap[String, JSValue]()
+                resMap.put("state", JSStringValue("sync"))
+                resMap.put("value", JSValue.fromJava(JSValue.fromJava(x.call())))
+                resMap.put("id", JSDoubleValue(id))
+                JSMap(resMap)
+              })
               new ExecutionResult.SynchronizedCall
           }
       }
@@ -182,14 +190,12 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
         if (!mainEngine.started) {
           mainEngine.start()
         }
+        var signal: Option[Signal] = None
         if (!isSynchronizedReturn) {
           println("Sync return (threaded)")
-          if (!signalHandler.push(machine.popSignal())) {
-            mainEngine.destroy()
-            return new ExecutionResult.Error("Javascript not responding; resorted to killing engine!")
-          }
+          signal = Some(machine.popSignal())
         }
-        executeThreaded()
+        executeThreaded(signal)
       }
     } catch {
       case e: Throwable =>
@@ -198,7 +204,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
     }
   }
 
-  private def invoke(address: String, method: String, jsArgs: Array[JSValue]): InvokeResult = withComponent(address) { comp =>
+  protected def invoke(address: String, method: String, jsArgs: Array[JSValue]): InvokeResult = withComponent(address) { comp =>
     val m = machine.methods(comp.host).get(method)
     if (m == null) {
       return InvokeResultComplete(Array())

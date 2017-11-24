@@ -1,9 +1,12 @@
 package com.pwootage.oc.js.jsvalue
 
+import java.nio.charset.StandardCharsets
+import java.text.NumberFormat
 import java.util
 import java.util.function.BiConsumer
 
 import com.google.gson._
+
 import scala.collection.JavaConversions._
 
 /**
@@ -69,12 +72,18 @@ object JSValue {
           }
         })
         JSMap(res)
+      case x: Array[Byte] =>
+        //TODO: arraybuffers?
+        JSStringValue(new String(x, StandardCharsets.UTF_8))
       case x: Array[AnyRef] =>
         JSArray(x.map(fromJava))
       case x: util.ArrayList[_] =>
         JSArray(x.map(fromJava).toArray)
-      case _ =>
+      case null =>
         JSNull
+      case x =>
+        JSValue.fromJSON(JSValue.gson.toJson(x))
+      //        JSStringValue(x.toString)
     }
   }
 }
@@ -115,9 +124,29 @@ case class JSDoubleValue(value: Double) extends JSValue {
 
   override def asDouble = Some(value)
 
-  override def asSimpleJava: java.lang.Double = value
+  def asLong = {
+    val longV = value.toLong
+    if (longV == value) {
+      Some(longV)
+    } else {
+      None
+    }
+  }
 
-  override def toJSON = s"$value"
+  def asInt = {
+    val intV = value.toInt
+    if (intV == value) {
+      Some(intV)
+    } else {
+      None
+    }
+  }
+
+  override def asSimpleJava = asInt.map(new java.lang.Integer(_))
+    .orElse(asLong.map(new java.lang.Long(_)))
+    .getOrElse(new java.lang.Double(value))
+
+  override def toJSON = value.formatted("%f")
 }
 
 case class JSBooleanValue(value: Boolean) extends JSValue {

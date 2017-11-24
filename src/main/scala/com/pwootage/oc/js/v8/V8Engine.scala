@@ -4,9 +4,11 @@ import java.nio.ByteBuffer
 import java.util
 
 import com.google.common.io.ByteStreams
-import com.pwootage.oc.js.{JSArchitectureBase, JSEngine}
+import com.pwootage.oc.js._
 import com.pwootage.oc.js.jsvalue._
+import li.cil.oc.api.machine.{LimitReachedException, Signal}
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 class V8Engine(arch: V8Architecture) extends JSEngine {
@@ -30,8 +32,9 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
   override def started: Boolean = _started
 
   override def start(): Unit = {
+    _started = true
     val res = evalWithName("__bios_main", "__bios_main().then(() => {})")
-//    val res = evalWithName("__bios_main", "__bios_call({name: 'test', args: []})")
+    //    val res = evalWithName("__bios_main", "__bios_call({name: 'test', args: []})")
     if (res.property("state").asString.exists(_.equals("error"))) {
       println("Error starting bios: " + res.toJSON)
       throw new RuntimeException("Failed to start: " + res.property("message"))
@@ -45,33 +48,76 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
   }
 
   override def evalWithName(filename: String, js: String): JSValue = {
-    System.out.println("Eval thread", Thread.currentThread().getName)
+//    System.out.println("Eval thread", Thread.currentThread().getName)
+    if (!filename.startsWith("__")) {
+      println(s"Executing $filename")
+    }
     val res = compile_and_execute(js, filename)
     JSValue.fromJSON(res)
   }
 
-  override def executeThreaded(syncResult: JSValue): JSValue = {
-    println(s"NEED TO EXECUTE THREADED")
-    JSNull
+  override def executeThreaded(_signal: Option[Signal], _syncResult: JSValue): RunThreadedResult = {
+    @tailrec def execute(signal: Option[Signal], syncResult: JSValue): RunThreadedResult = {
+      val sigValue: JSValue = signal match {
+        case Some(x) =>
+          JSValue.fromJava(x)
+        case None =>
+          JSNull
+      }
+      val jsResRaw = evalWithName("__run_threaded", s"__biosRunThreaded(${sigValue.toJSON}, ${syncResult.toJSON});")
+      val jsState = jsResRaw.property("state").asString
+      val jsRes = jsResRaw.property("result")
+      if (!jsState.exists(_.equals("success"))) {
+        throw new RuntimeException(s"Failed to execute: ${jsResRaw.toJSON}")
+      }
+      jsRes.property("type").asString match {
+        case Some("sleep") =>
+          RunThreadedResultSleep(
+            (jsRes.property("arg").asDouble.getOrElse(0.05) * 20).toInt.max(1)
+          )
+        case Some("call") =>
+          val call = jsRes.property("arg")
+          val args = call.property("args")
+          call.property("name").asString match {
+            case Some("component.invoke") =>
+              RunThreadedResultInvoke(
+                call.property("id").asDouble.get,
+                args.arrayVal(0).asString.getOrElse(""),
+                args.arrayVal(1).asString.getOrElse(""),
+                args.arrayVal(2).asArray.getOrElse(Array())
+              )
+            case _ =>
+              val res = __call(call.toJSON)
+              evalWithName("__biosReturn", s"__biosReturn($res);")
+              execute(None, JSNull)
+          }
+        case _ =>
+          throw new RuntimeException(s"Unknown yield type: ${jsRes.toJSON}")
+      }
+    }
+    execute(_signal, _syncResult)
   }
 
   // Called from native
-  private def __call(callStr: String): String = {
+  protected def __call(callStr: String): String = {
     val call = JSValue.fromJSON(callStr)
     val fn = call.property("name").asString
+    val id = call.property("id").asDouble
     val args = call.property("args")
-    if (fn.isEmpty) {
+    if (fn.isEmpty || id.isEmpty) {
       val res = new util.HashMap[String, String]()
       res.put("state", "error")
-      res.put("value", "Must provide the name of the bios callback to call")
+      res.put("value", "Must provide the name of the bios callback to call and the call ID")
       val resJson = JSValue.fromJava(res).toJSON
       println(s"Bad bios call: $call / ${resJson}")
       return resJson
     }
 
     val res = new util.HashMap[String, JSValue]()
+    res.put("id", JSDoubleValue(id.get))
     val noop = JSStringValue("noop")
     val sync = JSStringValue("sync")
+    val async = JSStringValue("async")
     val error = JSStringValue("error")
     fn.get match {
       case "bios.crash" =>
@@ -83,8 +129,8 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
         res.put("state", noop)
       case "bios.compile" =>
         val compileRes = arch.biosInternalAPI.compile(
-          args.arrayVal(0).asString.getOrElse(""),
-          args.arrayVal(1).asString.getOrElse("<anonymous.js>")
+          args.arrayVal(0).asString.getOrElse("<anonymous.js>"),
+          args.arrayVal(1).asString.getOrElse("")
         )
         res.put("state", sync)
         res.put("value", compileRes)
@@ -97,13 +143,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
         res.put("state", sync)
         res.put("value", JSValue.fromJava(methods))
       case "component.invoke" =>
-        val invokeResult = arch.componentAPI.invoke(
-          args.arrayVal(0).asString.getOrElse(""),
-          args.arrayVal(1).asString.getOrElse(""),
-          args.arrayVal(2).asArray.getOrElse(Array()).map(_.asSimpleJava)
-        )
-        res.put("state", sync)
-        res.put("value", JSValue.fromJava(invokeResult))
+        res.put("state", async) // Must be executed from RunThreaded
       case "component.doc" =>
         val doc = arch.componentAPI.doc(
           args.arrayVal(0).asString.getOrElse(""),

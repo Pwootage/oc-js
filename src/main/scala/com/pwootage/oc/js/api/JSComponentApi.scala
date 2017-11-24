@@ -44,14 +44,10 @@ class JSComponentApi(machine: Machine, connectedFuture: Future[Unit]) {
       methodRes.put("limit", callback.limit())
       methodRes.put("getter", callback.getter())
       methodRes.put("setter", callback.setter())
-      methodsRes.put(name, methodRes);
+      methodsRes.put(name, methodRes)
     })
 
     methodsRes
-  }
-
-  def invoke(address: String, method: String, args: Array[AnyRef]): Array[AnyRef] = withComponent(address) { comp =>
-    comp.invoke(method, machine, args:_*)
   }
 
   def `type`(address: String): String = connected { () =>

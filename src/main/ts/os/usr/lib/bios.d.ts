@@ -4,10 +4,22 @@ declare global {
   var $bios: BiosApi;
   var global: any;
 
+  type DeregFunction = () => void;
+  type EventHandler = (...args: any[]) => void;
+
+  class EventEmitter {
+    constructor();
+    on(name:string, fn: EventHandler): DeregFunction;
+    emit(name:string, ...args: any[]): void;
+    deregister(name: string, fn: EventHandler): void;
+  }
+
   class BiosApi {
     component: BiosComponentApi;
     computer: BiosComputerApi;
     bootFS: FilesystemComponentAPI;
+
+    signals: EventEmitter
 
     /** Compiles the script passed as a string */
     compile(filename: string, script: string): any;
@@ -29,8 +41,6 @@ declare global {
   }
 
   interface BiosComputerApi {
-    signal(): Promise<Signal | null>;
-    sleep(time: number): Promise<void>;
     address(): Promise<string>;
     tmpAddress(): Promise<string>;
     freeMemory(): Promise<number>;
