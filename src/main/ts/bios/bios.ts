@@ -37,12 +37,13 @@ interface BiosCallResult {
 }
 
 interface BiosResult {
+  state: 'success' | 'error';
   id: string;
   name: string;
   value: any
 }
 
-type BiosYield = BiosYieldSleep | BiosYieldCall;
+type BiosYield = BiosYieldSleep | BiosYieldCall | BiosYieldCrash;
 
 interface BiosYieldCall {
   type: 'call';
@@ -54,9 +55,15 @@ interface BiosYieldSleep {
   arg: number;
 }
 
+interface BiosYieldCrash {
+  type: 'crash';
+  arg: string;
+}
+
 declare function __bios_call(call: BiosCallToJava): string;
 
 const biosCallResultStore = new Map<string, AsyncBiosCall>();
+global.biosCallResultStore = biosCallResultStore;
 const callID = function*() {
   let id = 0;
   while (true) {
@@ -80,18 +87,23 @@ class AsyncBiosCall {
       this.reject = reject;
     });
     // Auto-remove on resolve/reject
-    this.promise.then(() => {
-      $bios.log(`Resolved ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)}`)
-      biosCallResultStore.delete(this.id);
-    }).catch(() => {
-      biosCallResultStore.delete(this.id);
-    });
+    // this.promise.then((value) => {
+    //   // $bios.log(`Resolved ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)} - ${JSON.stringify(value)}`)
+    //   biosCallResultStore.delete(this.id);
+    // }).catch(() => {
+    //   $bios.log(`Rejected ${this.call.name}/${this.id}/${JSON.stringify(this.call.args)}`)
+    //   biosCallResultStore.delete(this.id);
+    // });
   }
   call: BiosCall;
   id: string;
   promise: Promise<any>
   resolve: (val: any) => void;
   reject: (val: any) => void;
+
+  toString(): string {
+    return `AsyncCall(${this.call.name}/${this.id})`;
+  }
 }
 
 function biosCall<T>(call: BiosCall): Promise<T> {
@@ -102,33 +114,31 @@ function biosCall<T>(call: BiosCall): Promise<T> {
     id: asyncCall.id
   });
   const result: BiosCallResult = JSON.parse(biosResJson);
-  handleBiosCallResult(asyncCall, result);
+  __biosReturn(result);
   return asyncCall.promise;
 }
 
-function handleBiosCallResult(asyncCall: AsyncBiosCall, result: BiosCallResult) {
-  if (result.state == 'error') {
-    __biosError(result.value);
-  } else if (result.state == 'sync') {
-    // $bios.log(`Sync result ${JSON.stringify(result)}`);
-    __biosReturn({
-        id: asyncCall.id,
-        name: asyncCall.call.name,
-        value: result.value
-      });
-  } else if (result.state == 'noop') {
-    // Intentionally do nothing
-  } else {
-    // Async will be called eventually(tm)
-  }
-}
-
-function __biosReturn(res: BiosResult) {
-  const biosCallback = biosCallResultStore.get(res.id);
+function __biosReturn(result: BiosCallResult) {
+  const biosCallback = biosCallResultStore.get(result.id);
   if (biosCallback) {
-    biosCallback.resolve(res.value);
+
+    if (result.state == 'error') {
+      biosCallback.reject(result.value);
+      biosCallResultStore.delete(result.id);
+
+    } else if (result.state == 'sync') {
+      biosCallback.resolve(result.value);
+      biosCallResultStore.delete(result.id);
+
+    } else if (result.state == 'noop') {
+      // Remove it but don't resolve
+      biosCallResultStore.delete(result.id);
+
+    } else {
+      // Async will be called eventually(tm)
+    }
   } else {
-    $bios.crash(`Couldn't find bios callback for call ${res.name}#${res.id}`);
+    $bios.crash(`Couldn't find bios callback for call ${result.id}/${JSON.stringify(result.value)}`);
   }
 };
 Object.defineProperty(global, '__biosReturn', {
@@ -137,24 +147,30 @@ Object.defineProperty(global, '__biosReturn', {
   writable: false,
   configurable: false
 });
-
-function __biosError(error: string) {
-  $bios.crash(`Bios error: ${error}`);
-}
-Object.defineProperty(global, '__biosError', {
-  enumerable: false,
-  value: __biosError,
-  writable: false,
-  configurable: false
-});
+//
+// function __biosError(error: string) {
+//   $bios.crash(`Bios error: ${error}`);
+// }
+// Object.defineProperty(global, '__biosError', {
+//   enumerable: false,
+//   value: __biosError,
+//   writable: false,
+//   configurable: false
+// });
 
 function __biosRunThreaded(signal: Signal | null, result: BiosCallResult | null): BiosYield {
   if (result) {
+    // $bios.log(`__runThreaded: ${result.id}/${result.state}`);
     const asyncCall = biosCallResultStore.get(result.id);
     if (asyncCall) {
-      handleBiosCallResult(asyncCall, result);
+      __biosReturn(result);
     } else {
-      $bios.crash(`Unhandled response in __biosRunThreaded: ${result.id}/${JSON.stringify(result)}`);
+      const message = `Unhandled response in __biosRunThreaded: ${result.id}/${result.state}/[${[...biosCallResultStore.entries()].toString()}]`;
+      $bios.crash(message);
+      return {
+        type: 'crash',
+        arg: message
+      };
     }
   }
 
@@ -211,8 +227,8 @@ class BiosComponentApiImpl implements BiosComponentApi {
       args: [address, name, args]
     }).then(res => {
       // $bios.log('Component invoke res' + JSON.stringify(res));
-      if (res.length == 0) {
-        return;
+      if (!res || res.length == 0) {
+        return undefined;
       } else if (res.length == 1) {
         return res[0];
       } else {
@@ -412,10 +428,10 @@ global.__bios_main = async function() {
   } else {
     // Load eeprom main
     let eepromSrc = await eeprom.get();
-    const result = await $bios.compile('eeprom', `(function(global, exports){
+    const result = await $bios.compile('eeprom', `(function(global, exports, define){
       ${eepromSrc}
     })(global, {})`);
-    await $bios.log(`EEPROM compile result: ${JSON.stringify(result)}`)
+    // await $bios.log(`EEPROM compile result: ${JSON.stringify(result)}`)
     await global.__eeprom__();
     delete global.__eeprom__;
   }

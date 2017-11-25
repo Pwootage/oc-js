@@ -32,7 +32,7 @@ global.__eeprom__ = async function() {
   let handle = await fs.open('/kernel.js', 'r');
   let kernel = '';
   let read: string;
-  while (read = await fs.read(handle, 512)) kernel += read;
+  while (read = await fs.read(handle, 1024)) kernel += read;
   fs.close(handle);
   $bios.compile('kernel.js', kernel);
 }

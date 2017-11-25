@@ -7,16 +7,16 @@ class File {
   constructor(private fs: FilesystemComponentAPI, private handle: number) {
   }
 
-  close() {
-    this.fs.close(this.handle);
+  close(): Promise<void> {
+    return this.fs.close(this.handle);
   }
 
   read(count?: number): Promise<string> {
     return this.fs.read(this.handle, count || Math.pow(2, 16));
   }
 
-  write(data: string) {
-    this.fs.write(this.handle, data);
+  write(data: string): Promise<boolean> {
+    return this.fs.write(this.handle, data);
   }
 }
 
@@ -40,6 +40,7 @@ export class FileSystem {
   }
 
   async findInPathString(pathString: string, toFind: string): Promise<string | null> {
+    $bios.log(`Finding in path str, ${pathString} ${toFind}`);
     let toFindWithExt = toFind.indexOf('.js') < 0 ? toFind + '.js' : toFind;
     if (path.isAbsolute(toFindWithExt)) return (await this.exists(toFindWithExt)) ? toFindWithExt : null;
 

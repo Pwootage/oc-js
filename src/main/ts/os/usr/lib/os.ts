@@ -18,21 +18,22 @@ class OS {
       title: 'ocjs'
     });
 
-    while (true) {
-      let sig = await $bios.computer.signal();
-      if (sig) {
-        if (sig.name == 'key_down') {
-          if (sig.args[2] == 208) { //down arrow
-            this.term.scroll(1);
-          } else if (sig.args[2] == 200) { //up arrow
-            this.term.scroll(-1);
-          }
+    $bios.signals.on('signal', (sig) => {
+      if (sig.name == 'key_down') {
+        if (sig.args[2] == 208) { //down arrow
+          this.term.scroll(1);
+        } else if (sig.args[2] == 200) { //up arrow
+          this.term.scroll(-1);
         }
-      } else {
-        $bios.computer.sleep(0.05);
       }
-    }
+    });
   }
 }
 
-export = new OS();
+const instance = new OS();
+instance.init().then(() => {
+  $bios.log('OS initialized');
+}).catch(() => {
+  $bios.log('OS crash');
+});
+export = instance;

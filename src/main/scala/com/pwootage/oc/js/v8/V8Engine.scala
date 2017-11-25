@@ -51,13 +51,21 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
       println(s"Executing $filename")
     }
     val res = compile_and_execute(js, filename)
-    JSValue.fromJSON(res)
+    val resVal = JSValue.fromJSON(res)
+
+    if (resVal.property("state").asString.contains("error")) {
+      println("Error executing: ", resVal)
+    }
+
+    resVal
   }
 
   override def executeThreaded(_signal: Optional[Signal], _syncResult: JSValue): RunThreadedResult = {
     @tailrec def execute(signal: Optional[Signal], syncResult: JSValue): RunThreadedResult = {
+      val res = evalWithName("__test", "[...global.biosCallResultStore.entries()].toString()")
       val sigValue: JSValue = JSValue.fromJava(signal.orElse(null))
-      val jsResRaw = evalWithName("__run_threaded", s"__biosRunThreaded(${sigValue.toJSON}, ${syncResult.toJSON});")
+      val runJS = s"__biosRunThreaded(${sigValue.toJSON}, ${syncResult.toJSON});"
+      val jsResRaw = evalWithName("__run_threaded", runJS)
       val jsState = jsResRaw.property("state").asString
       val jsRes = jsResRaw.property("result")
       if (!jsState.exists(_.equals("success"))) {
@@ -84,6 +92,8 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
               evalWithName("__biosReturn", s"__biosReturn($res);")
               execute(Optional.empty(), JSNull)
           }
+        case Some("crash") =>
+          throw new RuntimeException(s"JS crash: ${jsRes.property("arg").toJSON}")
         case _ =>
           throw new RuntimeException(s"Unknown yield type: ${jsRes.toJSON}")
       }
@@ -107,8 +117,6 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
       return resJson
     }
 
-    println(s"JAVA: $fn/$id")
-
     val res = new util.HashMap[String, JSValue]()
     res.put("id", JSStringValue(id.get))
     val noop = JSStringValue("noop")
@@ -117,7 +125,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
     val error = JSStringValue("error")
     fn.get match {
       case "bios.crash" =>
-        println(s"Bios crash: ${args.arrayVal(0).asString}")
+        println(s"Bios crash: ${args.arrayVal(0).asString}, ${args.arrayVal(1).asString}")
         arch.biosInternalAPI.crash(args.arrayVal(0).asString.getOrElse("Unspecified error"))
         res.put("state", noop)
       case "bios.log" =>
@@ -128,8 +136,13 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
           args.arrayVal(0).asString.getOrElse("<anonymous.js>"),
           args.arrayVal(1).asString.getOrElse("")
         )
-        res.put("state", sync)
-        res.put("value", compileRes)
+        if (compileRes.property("state").asString.contains("error")) {
+          res.put("state", error)
+          res.put("value", compileRes.property("value"))
+        } else {
+          res.put("state", sync)
+          res.put("value", compileRes.property("value"))
+        }
       case "component.list" =>
         val list = arch.componentAPI.list(args.arrayVal(0).asString.getOrElse(""))
         res.put("state", sync)

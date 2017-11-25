@@ -42,8 +42,8 @@ object OCJS {
     log.info(pid)
     log.info("Loading duktape natives")
     //TODO: make this work in not, well, dev
-//        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
-    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
+        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
+//    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
     V8Static.initialize()
     log.info("Loaded duktape natives")
 

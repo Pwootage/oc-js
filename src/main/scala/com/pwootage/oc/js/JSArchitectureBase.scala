@@ -129,7 +129,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   override def runSynchronized(): Unit = {
     try {
       if (componentInvoker.hasSyncCall) {
-        println("Sync call (synchronized)")
+//        println("Sync call (synchronized)")
         componentInvoker.executeSync()
       }
     } catch {
@@ -157,7 +157,9 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     @tailrec def executeThreaded(signal: Option[Signal]): ExecutionResult = {
-      val jsRunResult = mainEngine.executeThreaded(Optional.ofNullable(signal.orNull), componentInvoker.result().getOrElse(JSNull))
+      val invokeResult = componentInvoker.result().getOrElse(JSNull)
+      val sig = Optional.ofNullable(signal.orNull)
+      val jsRunResult = mainEngine.executeThreaded(sig, invokeResult)
       jsRunResult match {
         case RunThreadedResultSleep(sleepAmount) =>
           new ExecutionResult.Sleep(sleepAmount)
@@ -193,7 +195,6 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
         }
         var signal: Option[Signal] = None
         if (!isSynchronizedReturn) {
-          println("Sync return (threaded)")
           signal = Some(machine.popSignal())
         }
         executeThreaded(signal)
