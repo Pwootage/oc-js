@@ -1,6 +1,7 @@
 package com.pwootage.oc.js
 
 import java.util
+import java.util.Optional
 
 import com.pwootage.oc.js.api.{JSBiosInternalAPI, JSComponentApi, JSComputerApi}
 import com.pwootage.oc.js.jsvalue._
@@ -26,7 +27,7 @@ trait RunThreadedResult
 
 case class RunThreadedResultSleep(time: Int) extends RunThreadedResult
 
-case class RunThreadedResultInvoke(id: Double, address: String, method: String, args: Array[JSValue]) extends RunThreadedResult
+case class RunThreadedResultInvoke(id: String, address: String, method: String, args: Array[JSValue]) extends RunThreadedResult
 
 /**
   * JS base
@@ -156,7 +157,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
     @tailrec def executeThreaded(signal: Option[Signal]): ExecutionResult = {
-      val jsRunResult = mainEngine.executeThreaded(signal, componentInvoker.result().getOrElse(JSNull))
+      val jsRunResult = mainEngine.executeThreaded(Optional.ofNullable(signal.orNull), componentInvoker.result().getOrElse(JSNull))
       jsRunResult match {
         case RunThreadedResultSleep(sleepAmount) =>
           new ExecutionResult.Sleep(sleepAmount)
@@ -167,7 +168,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
               val resMap = new util.HashMap[String, JSValue]()
               resMap.put("state", JSStringValue("sync"))
               resMap.put("value", JSValue.fromJava(x.res))
-              resMap.put("id", JSDoubleValue(id))
+              resMap.put("id", JSStringValue(id))
               componentInvoker.setResult(JSMap(resMap))
               executeThreaded(None)
             case x: InvokeResultSyncCall =>
@@ -175,7 +176,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
                 val resMap = new util.HashMap[String, JSValue]()
                 resMap.put("state", JSStringValue("sync"))
                 resMap.put("value", JSValue.fromJava(JSValue.fromJava(x.call())))
-                resMap.put("id", JSDoubleValue(id))
+                resMap.put("id", JSStringValue(id))
                 JSMap(resMap)
               })
               new ExecutionResult.SynchronizedCall

@@ -27,17 +27,17 @@ interface BiosCall {
 }
 
 interface BiosCallToJava extends BiosCall {
-  readonly id: number;
+  readonly id: string;
 }
 
 interface BiosCallResult {
   readonly state: 'error' | 'sync' | 'async' | 'noop';
   readonly value: any;
-  readonly id: number;
+  readonly id: string;
 }
 
 interface BiosResult {
-  id: number;
+  id: string;
   name: string;
   value: any
 }
@@ -56,7 +56,7 @@ interface BiosYieldSleep {
 
 declare function __bios_call(call: BiosCallToJava): string;
 
-const biosCallResultStore = new Map<number, AsyncBiosCall>();
+const biosCallResultStore = new Map<string, AsyncBiosCall>();
 const callID = function*() {
   let id = 0;
   while (true) {
@@ -64,10 +64,10 @@ const callID = function*() {
       id = 0;
     }
     id++;
-    while (biosCallResultStore.has(id)) {
+    while (biosCallResultStore.has(id.toFixed(0))) {
       id++;
     }
-    yield id;
+    yield id.toFixed(0);
   }
 }();
 
@@ -88,7 +88,7 @@ class AsyncBiosCall {
     });
   }
   call: BiosCall;
-  id: number;
+  id: string;
   promise: Promise<any>
   resolve: (val: any) => void;
   reject: (val: any) => void;
@@ -154,7 +154,7 @@ function __biosRunThreaded(signal: Signal | null, result: BiosCallResult | null)
     if (asyncCall) {
       handleBiosCallResult(asyncCall, result);
     } else {
-      $bios.crash(`Unhandled response in __biosRunThreaded: ${JSON.stringify(result)}`);
+      $bios.crash(`Unhandled response in __biosRunThreaded: ${result.id}/${JSON.stringify(result)}`);
     }
   }
 

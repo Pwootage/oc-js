@@ -1,15 +1,13 @@
 package com.pwootage.oc.js.v8
 
-import java.nio.ByteBuffer
 import java.util
+import java.util.Optional
 
-import com.google.common.io.ByteStreams
 import com.pwootage.oc.js._
 import com.pwootage.oc.js.jsvalue._
-import li.cil.oc.api.machine.{LimitReachedException, Signal}
+import li.cil.oc.api.machine.Signal
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 class V8Engine(arch: V8Architecture) extends JSEngine {
   private var v8EngineNative: Long = 0
@@ -48,7 +46,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
   }
 
   override def evalWithName(filename: String, js: String): JSValue = {
-//    System.out.println("Eval thread", Thread.currentThread().getName)
+    //    System.out.println("Eval thread", Thread.currentThread().getName)
     if (!filename.startsWith("__")) {
       println(s"Executing $filename")
     }
@@ -56,14 +54,9 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
     JSValue.fromJSON(res)
   }
 
-  override def executeThreaded(_signal: Option[Signal], _syncResult: JSValue): RunThreadedResult = {
-    @tailrec def execute(signal: Option[Signal], syncResult: JSValue): RunThreadedResult = {
-      val sigValue: JSValue = signal match {
-        case Some(x) =>
-          JSValue.fromJava(x)
-        case None =>
-          JSNull
-      }
+  override def executeThreaded(_signal: Optional[Signal], _syncResult: JSValue): RunThreadedResult = {
+    @tailrec def execute(signal: Optional[Signal], syncResult: JSValue): RunThreadedResult = {
+      val sigValue: JSValue = JSValue.fromJava(signal.orElse(null))
       val jsResRaw = evalWithName("__run_threaded", s"__biosRunThreaded(${sigValue.toJSON}, ${syncResult.toJSON});")
       val jsState = jsResRaw.property("state").asString
       val jsRes = jsResRaw.property("result")
@@ -81,7 +74,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
           call.property("name").asString match {
             case Some("component.invoke") =>
               RunThreadedResultInvoke(
-                call.property("id").asDouble.get,
+                call.property("id").asString.get,
                 args.arrayVal(0).asString.getOrElse(""),
                 args.arrayVal(1).asString.getOrElse(""),
                 args.arrayVal(2).asArray.getOrElse(Array())
@@ -89,12 +82,13 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
             case _ =>
               val res = __call(call.toJSON)
               evalWithName("__biosReturn", s"__biosReturn($res);")
-              execute(None, JSNull)
+              execute(Optional.empty(), JSNull)
           }
         case _ =>
           throw new RuntimeException(s"Unknown yield type: ${jsRes.toJSON}")
       }
     }
+
     execute(_signal, _syncResult)
   }
 
@@ -102,7 +96,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
   protected def __call(callStr: String): String = {
     val call = JSValue.fromJSON(callStr)
     val fn = call.property("name").asString
-    val id = call.property("id").asDouble
+    val id = call.property("id").asString
     val args = call.property("args")
     if (fn.isEmpty || id.isEmpty) {
       val res = new util.HashMap[String, String]()
@@ -113,8 +107,10 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
       return resJson
     }
 
+    println(s"JAVA: $fn/$id")
+
     val res = new util.HashMap[String, JSValue]()
-    res.put("id", JSDoubleValue(id.get))
+    res.put("id", JSStringValue(id.get))
     val noop = JSStringValue("noop")
     val sync = JSStringValue("sync")
     val async = JSStringValue("async")
