@@ -27,7 +27,7 @@ trait RunThreadedResult
 
 case class RunThreadedResultSleep(time: Int) extends RunThreadedResult
 
-case class RunThreadedResultInvoke(id: String, address: String, method: String, args: Array[JSValue]) extends RunThreadedResult
+case class RunThreadedResultInvoke(address: String, method: String, args: Array[JSValue]) extends RunThreadedResult
 
 /**
   * JS base
@@ -38,7 +38,7 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   private var connectedPromise: Promise[Unit] = Promise()
 
   private var mainEngine: JSEngine = null
-  private val componentInvoker = new ComponentInvoker
+  val componentInvoker = new ComponentInvoker
 
   var biosInternalAPI: JSBiosInternalAPI = null
   var componentAPI: JSComponentApi = null
@@ -80,24 +80,8 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
       mainEngine = createEngine()
       setupSandbox()
 
-      //Load bios
-      val biosJS = StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js")
-      val res = mainEngine.evalWithName("bios.js",
-        s"""
-           |(function(exports, global){
-           |${biosJS}
-           |})({}, this)
-        """.stripMargin)
-      if (res.property("state").asString.exists(_.equals("error"))) {
-        println("Error starting bios: " + res.toJSON)
-        throw new RuntimeException("Failed to start: " + res.property("message"))
-      } else {
-        println("Bios result: " + res.toJSON)
-      }
-
-      val bios = new util.HashMap[String, Object]()
-
-      //Setup bios
+      //Bios to be loaded by impl
+      //Set up api wrappers
       biosInternalAPI = new JSBiosInternalAPI(machine, mainEngine)
       componentAPI = new JSComponentApi(machine, connectedPromise.future)
       computerAPI = new JSComputerApi(machine, mainEngine)
@@ -156,29 +140,31 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
   }
 
   override def runThreaded(isSynchronizedReturn: Boolean): ExecutionResult = {
-    @tailrec def executeThreaded(signal: Option[Signal]): ExecutionResult = {
-      val invokeResult = componentInvoker.result().getOrElse(JSNull)
-      val sig = Optional.ofNullable(signal.orNull)
-      val jsRunResult = mainEngine.executeThreaded(sig, invokeResult)
+    @tailrec def executeThreaded(signal: Option[JSValue]): ExecutionResult = {
+      val invokeResult = componentInvoker.result()
+      if (signal.isDefined && invokeResult.isDefined) {
+        throw new RuntimeException("Both a signal and an invoke result exist! This is not supposed to be possible!")
+      }
+      val jsRunResult = mainEngine.executeThreaded(invokeResult.orElse(signal).getOrElse(JSNull))
       jsRunResult match {
         case RunThreadedResultSleep(sleepAmount) =>
           new ExecutionResult.Sleep(sleepAmount)
-        case RunThreadedResultInvoke(id, address, method, args) =>
+        case RunThreadedResultInvoke(address, method, args) =>
           invoke(address, method, args) match {
             case x: InvokeResultComplete =>
               //We yeilded successfully, we can just run again
               val resMap = new util.HashMap[String, JSValue]()
-              resMap.put("state", JSStringValue("sync"))
+              resMap.put("state", JSStringValue("success"))
               resMap.put("value", JSValue.fromJava(x.res))
-              resMap.put("id", JSStringValue(id))
               componentInvoker.setResult(JSMap(resMap))
               executeThreaded(None)
             case x: InvokeResultSyncCall =>
               componentInvoker.callSync(() => {
                 val resMap = new util.HashMap[String, JSValue]()
-                resMap.put("state", JSStringValue("sync"))
-                resMap.put("value", JSValue.fromJava(JSValue.fromJava(x.call())))
-                resMap.put("id", JSStringValue(id))
+                resMap.put("state", JSStringValue("success"))
+                val callResult = x.call()
+                val jsvalueResult = JSValue.fromJava(callResult)
+                resMap.put("value", jsvalueResult)
                 JSMap(resMap)
               })
               new ExecutionResult.SynchronizedCall
@@ -193,9 +179,15 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
         if (!mainEngine.started) {
           mainEngine.start()
         }
-        var signal: Option[Signal] = None
+        var signal: Option[JSValue] = None
         if (!isSynchronizedReturn) {
-          signal = Some(machine.popSignal())
+          val sig = machine.popSignal()
+          if (sig != null) {
+            signal = Some(JSMap(
+              "state" -> JSStringValue("success"),
+              "value" -> JSValue.fromJava(sig)
+            ))
+          }
         }
         executeThreaded(signal)
       }

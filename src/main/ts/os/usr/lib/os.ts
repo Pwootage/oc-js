@@ -1,18 +1,15 @@
-import {Term} from 'term';
-import {component} from 'component';
-import {GPUComponent, ScreenComponent} from './externalComponents';
+import { Term } from 'term';
+import { component } from 'component';
+import { GPUComponent, ScreenComponent } from './externalComponents';
 
 class OS {
   term: Term;
 
   constructor() {
-  }
-
-  async init(): Promise<void> {
-    let gpu: GPUComponent = await component.first('gpu');
-    let screen: ScreenComponent = await component.first('screen');
+    let gpu: GPUComponent = component.first('gpu');
+    let screen: ScreenComponent = component.first('screen');
     gpu.bind(screen.uuid);
-    gpu.fill(0, 0, (await gpu.getResolution())[0] + 1, (await gpu.getResolution())[1] + 1, 'X');
+    gpu.fill(0, 0, gpu.getResolution()[0] + 1, gpu.getResolution()[1] + 1, 'X');
 
     this.term = new Term(gpu, {
       title: 'ocjs'
@@ -27,13 +24,11 @@ class OS {
         }
       }
     });
+
+    while (true) {
+      $bios.computer.sleep(1);
+    }
   }
 }
 
-const instance = new OS();
-instance.init().then(() => {
-  $bios.log('OS initialized');
-}).catch(() => {
-  $bios.log('OS crash');
-});
-export = instance;
+export const instance = new OS();

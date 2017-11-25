@@ -189,6 +189,16 @@ case class JSMap(value: util.HashMap[String, JSValue]) extends JSValue {
     "}"
 }
 
+object JSMap {
+  def apply(pairs: (String, JSValue)*): JSMap = {
+    val res = new util.HashMap[String, JSValue]()
+    for ((key, value)<- pairs) {
+      res.put(key, value)
+    }
+    JSMap(res)
+  }
+}
+
 case object JSNull extends JSValue {
   override def toJSON = "null"
 

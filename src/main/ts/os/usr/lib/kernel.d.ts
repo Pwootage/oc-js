@@ -3,7 +3,7 @@
 import {} from '';
 
 declare global {
-  const require: (file: string) => Promise<any>;
+  const require: (file: string) => any;
 
   const exports: any;
   const module: ModuleInfo;

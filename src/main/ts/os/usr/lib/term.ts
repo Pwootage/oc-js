@@ -37,17 +37,11 @@ export class Term {
   private title: string;
 
   constructor(private gpu: GPUComponent, config?: TermConfig) {
-    this.init(gpu, config).then(() => {
-
-    });
-  }
-
-  async init(gpu: GPUComponent, config?: TermConfig): Promise<void> {
     config = config || {};
     this.startX = config.startX || 1;
     this.startY = config.startY || 1;
-    this.endX = config.endX || ((await gpu.getResolution())[0]);
-    this.endY = config.endY || ((await gpu.getResolution())[1]);
+    this.endX = config.endX || (gpu.getResolution()[0]);
+    this.endY = config.endY || ( gpu.getResolution()[1]);
     this.title = config.title || '';
     this.scrollbackMax = config.scrollback || 110;
     this.buffer = new Array(this.scrollbackMax);

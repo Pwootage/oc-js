@@ -7,15 +7,15 @@ class File {
   constructor(private fs: FilesystemComponentAPI, private handle: number) {
   }
 
-  close(): Promise<void> {
+  close(): void {
     return this.fs.close(this.handle);
   }
 
-  read(count?: number): Promise<string> {
+  read(count?: number): string {
     return this.fs.read(this.handle, count || Math.pow(2, 16));
   }
 
-  write(data: string): Promise<boolean> {
+  write(data: string): boolean {
     return this.fs.write(this.handle, data);
   }
 }
@@ -28,21 +28,20 @@ export class FileSystem {
   constructor(private root: FilesystemComponentAPI) {
   }
 
-  async open(filePath: string, mode: string = 'r'): Promise<File | null> {
+  open(filePath: string, mode: string = 'r'): File | null {
     if (!this.exists(filePath)) return null;
-    let handle = await this.root.open(filePath, mode);
+    let handle = this.root.open(filePath, mode);
     if (!handle) return null;
     return new File(this.root, handle);
   }
 
-  exists(filePath: string): Promise<boolean> {
+  exists(filePath: string): boolean {
     return this.root.exists(filePath);
   }
 
-  async findInPathString(pathString: string, toFind: string): Promise<string | null> {
-    $bios.log(`Finding in path str, ${pathString} ${toFind}`);
+  findInPathString(pathString: string, toFind: string): string | null {
     let toFindWithExt = toFind.indexOf('.js') < 0 ? toFind + '.js' : toFind;
-    if (path.isAbsolute(toFindWithExt)) return (await this.exists(toFindWithExt)) ? toFindWithExt : null;
+    if (path.isAbsolute(toFindWithExt)) return this.exists(toFindWithExt) ? toFindWithExt : null;
 
     let split = pathString.split(path.delimiter);
     for (let i = 0; i < split.length; i++) {
