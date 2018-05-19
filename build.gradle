@@ -1,14 +1,14 @@
 buildscript {
-    repositories {
-        jcenter()
-        maven {
-            name = "forge"
-            url = "http://files.minecraftforge.net/maven"
-        }
+  repositories {
+    jcenter()
+    maven {
+      name = "forge"
+      url = "http://files.minecraftforge.net/maven"
     }
-    dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
-    }
+  }
+  dependencies {
+    classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+  }
 }
 
 apply plugin: 'scala'
@@ -19,49 +19,49 @@ group = "com.pwootage.oc.js"
 archivesBaseName = "oc-js"
 
 minecraft {
-    version = "1.10.2-12.18.3.2221"
-    runDir = "run"
+  version = "1.12.2-14.23.2.2616"
+  runDir = "run"
 
-    // the mappings can be changed at any time, and must be in the following format.
-    // snapshot_YYYYMMDD   snapshot are built nightly.
-    // stable_#            stables are built at the discretion of the MCP team.
-    mappings = "snapshot_20160720"
-    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+  // the mappings can be changed at any time, and must be in the following format.
+  // snapshot_YYYYMMDD   snapshot are built nightly.
+  // stable_#            stables are built at the discretion of the MCP team.
+  mappings = "snapshot_20180213"
+  // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 
-    replaceIn "com/pwootage/oc/js/OCJS.scala"
-    replace "@VERSION@", project.version
+  replaceIn "com/pwootage/oc/js/OCJS.scala"
+  replace "@VERSION@", project.version
 }
 
 repositories {
-    maven { url = "http://maven.cil.li/" }
+  maven { url "http://maven.cil.li/" }
 }
 
 dependencies {
-    compile "li.cil.oc:OpenComputers:MC1.10.2-1.7.+:api"
-    compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
+  compile "li.cil.oc:OpenComputers:MC1.12.2-1.7.+:api"
+  compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
 }
 
 processResources {
-    // this will ensure that this task is redone when the versions change.
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.minecraft.version
+  // this will ensure that this task is redone when the versions change.
+  inputs.property "version", project.version
+  inputs.property "mcversion", project.minecraft.version
 
-    from(sourceSets.main.resources.srcDirs) {
-        include 'mcmod.info'
+  from(sourceSets.main.resources.srcDirs) {
+    include 'mcmod.info'
 
-        expand 'version': project.version, 'mcversion': project.minecraft.version
-    }
+    expand 'version': project.version, 'mcversion': project.minecraft.version
+  }
 
-    from(sourceSets.main.resources.srcDirs) {
-        exclude 'mcmod.info'
-    }
+  from(sourceSets.main.resources.srcDirs) {
+    exclude 'mcmod.info'
+  }
 }
 
 task natives(type: Exec) {
-    executable "bash"
-    args "native.sh"
+  executable "bash"
+  args "native.sh"
 
-    dependsOn classes
+  dependsOn classes
 }
 
 build.dependsOn("natives")
