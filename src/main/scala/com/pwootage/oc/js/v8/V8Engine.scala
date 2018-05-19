@@ -31,127 +31,119 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
 
   override def start(): Unit = {
     _started = true
-    val res = evalWithName("__bios_main", "__bios_main().then(() => {})")
-    //    val res = evalWithName("__bios_main", "__bios_call({name: 'test', args: []})")
-    if (res.property("state").asString.exists(_.equals("error"))) {
-      println("Error starting bios: " + res.toJSON)
-      throw new RuntimeException("Failed to start: " + res.property("message"))
-    } else {
-      println("Bios result: " + res.toJSON)
-    }
+    val biosJS = StaticJSSrc.loadSrc("/assets/oc-js/bios/bios.js")
+    val biosSrc =
+      s"""(function(exports, global){try {$biosJS
+         |  return "<bios ended execution>";
+         |/**/} catch (error) {
+         |  const backup = new Error('<no error somehow>');
+         |  return error.stack || backup.stack || '<no stack>';
+         |}
+         |})({}, this);
+        """.stripMargin
+    arch.componentInvoker.setResult(JSStringValue(biosSrc))
   }
 
   override def destroy(): Unit = {
     native_destroy()
   }
 
-  override def evalWithName(filename: String, js: String): JSValue = {
-    //    System.out.println("Eval thread", Thread.currentThread().getName)
-    if (!filename.startsWith("__")) {
-      println(s"Executing $filename")
-    }
-    val res = compile_and_execute(js, filename)
-    JSValue.fromJSON(res)
-  }
-
-  override def executeThreaded(_signal: Optional[Signal], _syncResult: JSValue): RunThreadedResult = {
-    @tailrec def execute(signal: Optional[Signal], syncResult: JSValue): RunThreadedResult = {
-      val sigValue: JSValue = JSValue.fromJava(signal.orElse(null))
-      val jsResRaw = evalWithName("__run_threaded", s"__biosRunThreaded(${sigValue.toJSON}, ${syncResult.toJSON});")
-      val jsState = jsResRaw.property("state").asString
-      val jsRes = jsResRaw.property("result")
-      if (!jsState.exists(_.equals("success"))) {
-        throw new RuntimeException(s"Failed to execute: ${jsResRaw.toJSON}")
+  override def executeThreaded(_jsNext: JSValue): RunThreadedResult = {
+    @tailrec def execute(jsNext: JSValue): RunThreadedResult = {
+      val jsNextStr = jsNext match {
+        case JSStringValue(x) => x
+        case x=> x.toJSON
       }
-      jsRes.property("type").asString match {
+      val nativeRes = native_next(jsNextStr)
+      val jsYield = JSValue.fromJSON(nativeRes)
+      jsYield.property("type").asString match {
         case Some("sleep") =>
           RunThreadedResultSleep(
-            (jsRes.property("arg").asDouble.getOrElse(0.05) * 20).toInt.max(1)
+            (jsYield.property("duration").asDouble.getOrElse(0.05) * 20).toInt.max(1)
           )
         case Some("call") =>
-          val call = jsRes.property("arg")
+          val call = jsYield
           val args = call.property("args")
           call.property("name").asString match {
+            // Handle component invoke here
             case Some("component.invoke") =>
               RunThreadedResultInvoke(
-                call.property("id").asString.get,
                 args.arrayVal(0).asString.getOrElse(""),
                 args.arrayVal(1).asString.getOrElse(""),
                 args.arrayVal(2).asArray.getOrElse(Array())
               )
             case _ =>
-              val res = __call(call.toJSON)
-              evalWithName("__biosReturn", s"__biosReturn($res);")
-              execute(Optional.empty(), JSNull)
+              execute(execCall(call))
           }
-        case _ =>
-          throw new RuntimeException(s"Unknown yield type: ${jsRes.toJSON}")
+        case Some("crash") | Some("error") =>
+          var message = "JS crash: "
+          if (jsYield.property("file").asString.isDefined) {
+            message += jsYield.property("file").asString.get
+          }
+          if (jsYield.property("line").asDouble.isDefined) {
+            message += ":" + jsYield.property("line").asDouble.get.toLong
+          }
+          if (jsYield.property("start").asDouble.isDefined) {
+            message += ":" + jsYield.property("start").asDouble.get.toLong
+          }
+          message += " " +  jsYield.property("message").asString.getOrElse("<unknown error>")
+          throw new RuntimeException(message)
+        case Some("exec_end") =>
+          throw new RuntimeException("JS crash: " + jsYield.property("result").asString)
+        case Some("unresponsive") =>
+          throw new RuntimeException(s"JS unresponsive")
+        case x =>
+          throw new RuntimeException(s"Unknown yield type: $x/${jsYield.toJSON}")
       }
     }
 
-    execute(_signal, _syncResult)
+    execute(_jsNext)
   }
 
-  // Called from native
-  protected def __call(callStr: String): String = {
-    val call = JSValue.fromJSON(callStr)
+  protected def execCall(call: JSValue): JSValue = {
     val fn = call.property("name").asString
-    val id = call.property("id").asString
     val args = call.property("args")
-    if (fn.isEmpty || id.isEmpty) {
-      val res = new util.HashMap[String, String]()
-      res.put("state", "error")
-      res.put("value", "Must provide the name of the bios callback to call and the call ID")
-      val resJson = JSValue.fromJava(res).toJSON
-      println(s"Bad bios call: $call / ${resJson}")
-      return resJson
+    if (fn.isEmpty) {
+      val res = JSMap(
+        "state" -> JSStringValue("error"),
+        "value" -> JSStringValue("Must provide the name of the bios callback to call and the call ID")
+      )
+      println(s"Bad bios call: $call / ${res.toJSON}")
+      return res
     }
 
-    println(s"JAVA: $fn/$id")
-
     val res = new util.HashMap[String, JSValue]()
-    res.put("id", JSStringValue(id.get))
-    val noop = JSStringValue("noop")
-    val sync = JSStringValue("sync")
-    val async = JSStringValue("async")
     val error = JSStringValue("error")
+    val success = JSStringValue("success")
     fn.get match {
       case "bios.crash" =>
-        println(s"Bios crash: ${args.arrayVal(0).asString}")
+        println(s"Bios crash: ${args.arrayVal(0).asString}, ${args.arrayVal(1).asString}")
         arch.biosInternalAPI.crash(args.arrayVal(0).asString.getOrElse("Unspecified error"))
-        res.put("state", noop)
+        // Doesn't return, it throws
+        res.put("state", error)
       case "bios.log" =>
         arch.biosInternalAPI.log(args.arrayVal(0).asString.getOrElse(""))
-        res.put("state", noop)
-      case "bios.compile" =>
-        val compileRes = arch.biosInternalAPI.compile(
-          args.arrayVal(0).asString.getOrElse("<anonymous.js>"),
-          args.arrayVal(1).asString.getOrElse("")
-        )
-        res.put("state", sync)
-        res.put("value", compileRes)
+        res.put("state", success)
       case "component.list" =>
         val list = arch.componentAPI.list(args.arrayVal(0).asString.getOrElse(""))
-        res.put("state", sync)
+        res.put("state", success)
         res.put("value", JSValue.fromJava(list))
       case "component.methods" =>
         val methods = arch.componentAPI.methods(args.arrayVal(0).asString.getOrElse(""))
-        res.put("state", sync)
+        res.put("state", success)
         res.put("value", JSValue.fromJava(methods))
-      case "component.invoke" =>
-        res.put("state", async) // Must be executed from RunThreaded
       case "component.doc" =>
         val doc = arch.componentAPI.doc(
           args.arrayVal(0).asString.getOrElse(""),
           args.arrayVal(1).asString.getOrElse("")
         )
-        res.put("state", sync)
+        res.put("state", success)
         res.put("value", JSValue.fromJava(doc))
       case "component.type" =>
         val doc = arch.componentAPI.`type`(
           args.arrayVal(0).asString.getOrElse("")
         )
-        res.put("state", sync)
+        res.put("state", success)
         res.put("value", JSValue.fromJava(doc))
       case x =>
         res.put("state", error)
@@ -159,7 +151,7 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
         val resJson = JSMap(res).toJSON
         println(s"Unknown bios call: x / $resJson")
     }
-    JSMap(res).toJSON
+    JSMap(res)
   }
 
   //Native methods
@@ -167,5 +159,5 @@ class V8Engine(arch: V8Architecture) extends JSEngine {
 
   @native protected def native_destroy(): Unit
 
-  @native protected def compile_and_execute(src: String, filename: String): String
+  @native protected def native_next(next: String): String
 }

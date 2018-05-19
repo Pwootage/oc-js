@@ -13,8 +13,4 @@ class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
     machine.crash(msg)
     throw new JSExitException("JS Crashed: " + msg)
   }
-
-  def compile(name: String, script: String): JSValue = {
-    scriptEngine.evalWithName(name, script)
-  }
 }

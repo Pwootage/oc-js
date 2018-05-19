@@ -9,9 +9,8 @@ trait JSEngine {
   def started: Boolean
   def start()
   def destroy()
-  def evalWithName(filename: String, js: String): JSValue
 
-  def executeThreaded(signal: Optional[Signal], synResult: JSValue): RunThreadedResult
+  def executeThreaded(jsNext: JSValue): RunThreadedResult
   def setMaxMemory(max: Int): Unit
   def maxMemory: Int
   def usedMemory: Int

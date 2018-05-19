@@ -9,6 +9,11 @@
 #include <jni.h>
 #include <memory>
 #include <functional>
+#include <thread>
+#include <future>
+#include <string>
+#include <mutex>
+#include <optional>
 #include "include/v8.h"
 #include "include/libplatform/libplatform.h"
 
@@ -28,12 +33,11 @@ public:
     static V8EngineNative *getFromJava(JNIEnv *env, jobject obj);
     static void setToJava(JNIEnv *env, jobject obj, V8EngineNative *data);
 
+    std::thread mainThread;
     v8::Isolate *getIsolate();
-    v8::Local<v8::String> compileAndExecute(jstring src, jstring filename);
+    std::future<std::string> next(std::string next);
 
     v8::Global<v8::Context> contextRef;
-    v8::Global<v8::Context> kernelContext;
-    v8::Global<v8::Context> userContext;
 private:
     JavaVM *javaVM;
     jobject globalObjRef;
@@ -43,8 +47,22 @@ private:
 
     JNIPtr getEnv();
     v8::Local<v8::Object> convertException(v8::Local<v8::Context> context, v8::TryCatch &tryCatch);
+    std::string compileAndExecute(std::string src, std::string filename);
 
-    static void __call(const v8::FunctionCallbackInfo<v8::Value>& info);
+    // Thread stuff
+    void mainThreadFn();
+    std::string yield(std::string output);
+
+    std::mutex executionMutex;
+    std::condition_variable engineWait;
+    std::unique_lock<std::mutex> engineLock;
+    std::optional<std::string> nextInput = std::nullopt;
+    std::optional<std::promise<std::string>> outputPromise = std::make_optional(std::promise<std::string>());
+    std::optional<std::string> deadResult = std::nullopt;
+
+    /** To java (eventually) */
+    static void __yield(const v8::FunctionCallbackInfo<v8::Value> &info);
+    static void __compile(const v8::FunctionCallbackInfo<v8::Value> &info);
 };
 
 

@@ -1,4 +1,4 @@
-//Manually wrapped since it is loaded by something that isn't require() since this is require()FileSystem
+//Manually wrapped since it is loaded by something that isn't require() since this is require()
 
 import {FileSystem} from "../lib/fs";
 
@@ -6,13 +6,11 @@ import {FileSystem} from "../lib/fs";
   //Definitions
   class RequireImpl {
     constructor() {
-      //Stub out a couple methods temporarily
-      //Load from bootfs
       this.loadFile = path => {
         let handle = $bios.bootFS.open(path, 'r');
         let src = '';
-        let read:string;
-        while (read = $bios.bootFS.read(handle, 512)) src += read;
+        let read: string;
+        while (read = $bios.bootFS.read(handle, 1024)) src += read;
         $bios.bootFS.close(handle);
         return src;
       };
@@ -27,37 +25,41 @@ import {FileSystem} from "../lib/fs";
         return r;
       };
 
-      //Set us up as require
+      //Set us up as require & define
       global.require = this.apply.bind(this);
+      this.modules['require'] = global.require;
 
       //load FS
       this.fsImpl = this.apply('/usr/lib/fs.js').fs;
+
       this.loadFile = path => {
         let f = this.fsImpl.open(path);
+        if (!f) {
+          return null;
+        }
         let src = '';
-        let read:string;
+        let read: string;
         while (read = f.read(512)) src += read;
         f.close();
         return src;
       };
-      this.find = path => this.fsImpl.findInPathString(this.fsImpl.LIB_PATH, path);
+      this.find = path => {
+        return this.fsImpl.findInPathString(this.fsImpl.LIB_PATH, path);
+      };
 
       //load path
       let path = this.apply('path.js');
       this.basename = p => path.basename(p);
-
-      //Setup myself
-      this.modules['require'] = this;
     }
 
-    fsImpl:FileSystem;
-    loadFile:(path:string)=>string;
-    basename:(path:string)=>string;
-    find:(path:string)=>string;
+    fsImpl: FileSystem;
+    loadFile: (path: string) => string | null;
+    basename: (path: string) => string;
+    find: (path: string) => string | null;
 
-    modules:{ [path:string]: any } = {};
+    modules: { [path: string]: any } = {};
 
-    apply(path:string):any {
+    apply(path: string): any | null {
       let moduleName = this.basename(path).replace(/\.(js|ts|json|es|es5|es6)/, '');
 
       //Cache
@@ -67,26 +69,30 @@ import {FileSystem} from "../lib/fs";
       if (!realPath) return null;
 
       let src = this.loadFile(realPath);
+      if (!src) {
+        return null;
+      }
       let oldExports = global.exports;
       global.exports = {};
-      this.compileModule(moduleName, realPath, src);
-      this.modules[moduleName] = global.exports;
+      const res = this.compileModule(moduleName, realPath, src);
+      let value: any;
+      value = global.exports;
       global.exports = oldExports;
+      this.modules[moduleName] = value;
       return this.modules[moduleName];
     }
 
-    compileModule(moduleName:string, filePath:string, src:string):any {
+    compileModule(moduleName: string, filePath: string, src: string): any {
       //Wrap in anonymous function, being careful to escape some thigns for safety
       //Notably, protect a couple vital global objects & pass a unique module object
       let modJson = JSON.stringify({
         name: moduleName,
         path: filePath
       });
-      $bios.compile(filePath,
-        `(function(global, $bios, require, module){${src}
-        /**/if(module.exports) exports=module.exports;})(global, global.$bios, global.require, ${modJson});`);
+      return $bios.compile(filePath,
+        `(function(global, exports, $bios, require, module){${src}
+        /**/if(module.exports) exports=module.exports; global.exports = exports;})(global, global.exports, global.$bios, global.require, ${modJson});`);
     }
   }
-
-  let impl = new RequireImpl();
+  global.__requireImpl = new RequireImpl();
 })();

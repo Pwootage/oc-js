@@ -29,25 +29,26 @@ declare global {
   }
 
   interface BiosComponentApi {
-    list(filter?: string): Promise<ComponentInfo[]>;
-    invoke(address: string, name: string, ...args: any[]): Promise<any | any[]>;
-    doc(address: string, name: string): Promise<string>;
-    methods(address: string): Promise<{
+    list(filter?: string): ComponentInfo[];
+    invoke(address: string, name: string, ...args: any[]): any | any[];
+    doc(address: string, name: string): string;
+    methods(address: string): {
       [key: string]: ComponentMethodInfo;
-    }>;
-    type(address: string): Promise<string>;
-    proxy<T>(address: string): Promise<T | null>;
-    first<T>(type: string): Promise<T | null>;
+    };
+    type(address: string): string;
+    proxy<T>(address: string): T | null;
+    first<T>(type: string): T | null;
   }
 
   interface BiosComputerApi {
-    address(): Promise<string>;
-    tmpAddress(): Promise<string>;
-    freeMemory(): Promise<number>;
-    totalMemory(): Promise<number>;
-    energy(): Promise<number>;
-    maxEnergy(): Promise<number>;
-    uptime(): Promise<number>;
+    sleep(duration: number): void;
+    address(): string;
+    tmpAddress(): string;
+    freeMemory(): number;
+    totalMemory(): number;
+    energy(): number;
+    maxEnergy(): number;
+    uptime(): number;
   }
 
   interface ComponentInfo {

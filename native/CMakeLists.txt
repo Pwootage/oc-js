@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
 project(ocjs)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 # Compiler options
-add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
-add_compile_options(-O0 -g)
+#add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
+add_compile_options(-O0 -g -Wall -fstrict-aliasing -stdlib=libc++)
 
 # Libraries
 find_package(Java REQUIRED)
