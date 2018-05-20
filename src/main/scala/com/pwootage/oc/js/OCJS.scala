@@ -20,7 +20,7 @@ import org.apache.logging.log4j.LogManager
   version = OCJS.Version,
   modLanguage = "scala",
   useMetadata = true,
-  dependencies = "required-after:OpenComputers@[1.5.20,)"
+  dependencies = "required-after:opencomputers@[1.7.2,)"
 )
 object OCJS {
   final val ID = "oc-js"
@@ -42,8 +42,8 @@ object OCJS {
     log.info(pid)
     log.info("Loading duktape natives")
     //TODO: make this work in not, well, dev
-        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
-//    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
+    //        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
+    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
     V8Static.initialize()
     log.info("Loaded duktape natives")
 
@@ -57,7 +57,7 @@ object OCJS {
 
     Items.registerFloppy("oc.js", EnumDyeColor.LIGHT_BLUE, new Callable[fs.FileSystem] {
       override def call(): fs.FileSystem = FileSystem.fromClass(classOf[V8Architecture], "oc-js", "os/")
-    })
+    }, true)
 
     val t = new Timer()
     val task = new TimerTask {
@@ -65,7 +65,7 @@ object OCJS {
         log.info(pid)
       }
     }
-//    t.scheduleAtFixedRate(task, 2000, 2000)
+    //    t.scheduleAtFixedRate(task, 2000, 2000)
   }
 
   @EventHandler

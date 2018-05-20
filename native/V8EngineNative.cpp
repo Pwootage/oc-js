@@ -11,7 +11,7 @@
 using namespace v8;
 using namespace std;
 
-Platform *v8Platform = nullptr;
+unique_ptr<Platform> v8Platform;
 jfieldID v8EngineNativeFID = nullptr;
 StartupData *icudtl_data;
 StartupData *natives_blob_data;
@@ -48,10 +48,13 @@ void V8EngineNative::Initialize(JNIEnv *env, jclass clazz) {
   // TODO: icudtl?
   V8::SetNativesDataBlob(natives_blob_data);
   V8::SetSnapshotDataBlob(snapshot_blob_data);
-  v8Platform = platform::CreateDefaultPlatform(1,
-                                               platform::IdleTaskSupport::kDisabled,
-                                               platform::InProcessStackDumping::kDisabled);
-  V8::InitializePlatform(v8Platform);
+//  v8Platform = platform::CreateDefaultPlatform(1,
+//                                               platform::IdleTaskSupport::kDisabled,
+//                                               platform::InProcessStackDumping::kDisabled);
+  v8Platform = platform::NewDefaultPlatform(1,
+                                            platform::IdleTaskSupport::kDisabled,
+                                            platform::InProcessStackDumping::kDisabled);
+  V8::InitializePlatform(v8Platform.get());
   V8::Initialize();
 
   jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/v8/V8Engine");
@@ -92,9 +95,9 @@ V8EngineNative::V8EngineNative(JNIEnv *env, jobject obj) {
       Local<Object> v8Native = __yieldTemplate->NewInstance(context).ToLocalChecked();
       v8Native->SetInternalField(0, External::New(isolate, this));
       context->Global()->Set(
-          context,
-          String::NewFromUtf8(isolate, "__yield", NewStringType::kNormal).ToLocalChecked(),
-          v8Native
+        context,
+        String::NewFromUtf8(isolate, "__yield", NewStringType::kNormal).ToLocalChecked(),
+        v8Native
       ).ToChecked();
     }
     {
@@ -105,14 +108,14 @@ V8EngineNative::V8EngineNative(JNIEnv *env, jobject obj) {
       Local<Object> v8Native = __compileTemplate->NewInstance(context).ToLocalChecked();
       v8Native->SetInternalField(0, External::New(isolate, this));
       context->Global()->Set(
-          context,
-          String::NewFromUtf8(isolate, "__compile", NewStringType::kNormal).ToLocalChecked(),
-          v8Native
+        context,
+        String::NewFromUtf8(isolate, "__compile", NewStringType::kNormal).ToLocalChecked(),
+        v8Native
       ).ToChecked();
     }
   }
 
-  this->mainThread = thread([this]{this->mainThreadFn();});
+  this->mainThread = thread([this] { this->mainThreadFn(); });
 }
 
 V8EngineNative::~V8EngineNative() {
@@ -194,7 +197,7 @@ string V8EngineNative::yield(string output) {
   this->outputPromise->set_value(output);
   this->nextInput = nullopt;
   this->outputPromise = nullopt;
-  this->engineWait.wait(this->engineLock, [this]{
+  this->engineWait.wait(this->engineLock, [this] {
       return this->nextInput.has_value();
   });
   fflush(stdout);
@@ -234,14 +237,14 @@ string V8EngineNative::compileAndExecute(string src, string filename) {
 
   Local<Object> res = Object::New(isolate);
   res->Set(
-      context,
-      String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(),
-      String::NewFromUtf8(isolate, "exec_end", NewStringType::kNormal).ToLocalChecked()
+    context,
+    String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(),
+    String::NewFromUtf8(isolate, "exec_end", NewStringType::kNormal).ToLocalChecked()
   ).ToChecked();
   res->Set(
-      context,
-      String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
-      scriptResult.ToLocalChecked()
+    context,
+    String::NewFromUtf8(isolate, "result", NewStringType::kNormal).ToLocalChecked(),
+    scriptResult.ToLocalChecked()
   ).ToChecked();
   Local<String> jsonStr = JSON::Stringify(context, res).ToLocalChecked();
   return string(*String::Utf8Value(isolate, jsonStr));
@@ -260,45 +263,45 @@ Local<Object> V8EngineNative::convertException(Local<Context> context, TryCatch 
 
   Local<Object> result = Object::New(isolate);
   result->Set(
-      context,
-      String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(),
-      String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
+    context,
+    String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(),
+    String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
   ).ToChecked();
   result->Set(
-      context,
-      String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
-      message->GetScriptResourceName()
+    context,
+    String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
+    message->GetScriptResourceName()
   ).ToChecked();
   MaybeLocal<String> sourceLine = message->GetSourceLine(context);
   if (!sourceLine.IsEmpty() && !sourceLine.IsEmpty() && !sourceLine.ToLocalChecked().IsEmpty()) {
     result->Set(
-        context,
-        String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
-        sourceLine.ToLocalChecked()
+      context,
+      String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
+      sourceLine.ToLocalChecked()
     ).ToChecked();
   }
   Maybe<int> line = message->GetLineNumber(context);
   if (line.IsJust()) {
     result->Set(
-        context,
-        String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
-        Integer::New(isolate, line.FromJust())
+      context,
+      String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
+      Integer::New(isolate, line.FromJust())
     ).ToChecked();
   }
   Maybe<int> startCol = message->GetStartColumn(context);
   if (startCol.IsJust()) {
     result->Set(
-        context,
-        String::NewFromUtf8(isolate, "start", NewStringType::kNormal).ToLocalChecked(),
-        Integer::New(isolate, startCol.FromJust())
+      context,
+      String::NewFromUtf8(isolate, "start", NewStringType::kNormal).ToLocalChecked(),
+      Integer::New(isolate, startCol.FromJust())
     ).ToChecked();
   }
   Maybe<int> endCol = message->GetStartColumn(context);
   if (endCol.IsJust()) {
     result->Set(
-        context,
-        String::NewFromUtf8(isolate, "end", NewStringType::kNormal).ToLocalChecked(),
-        Integer::New(isolate, endCol.FromJust())
+      context,
+      String::NewFromUtf8(isolate, "end", NewStringType::kNormal).ToLocalChecked(),
+      Integer::New(isolate, endCol.FromJust())
     ).ToChecked();
   }
 
@@ -309,44 +312,44 @@ Local<Object> V8EngineNative::convertException(Local<Context> context, TryCatch 
       Local<StackFrame> frame = stackTrace->GetFrame(i);
       Local<Object> resFrame = Object::New(isolate);
       resFrame->Set(
-          context,
-          String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
-          frame->GetScriptName()
+        context,
+        String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
+        frame->GetScriptName()
       ).ToChecked();
       resFrame->Set(
-          context,
-          String::NewFromUtf8(isolate, "function", NewStringType::kNormal).ToLocalChecked(),
-          frame->GetFunctionName()
+        context,
+        String::NewFromUtf8(isolate, "function", NewStringType::kNormal).ToLocalChecked(),
+        frame->GetFunctionName()
       ).ToChecked();
       resFrame->Set(
-          context,
-          String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
-          Integer::New(isolate, frame->GetLineNumber())
+        context,
+        String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
+        Integer::New(isolate, frame->GetLineNumber())
       ).ToChecked();
       resFrame->Set(
-          context,
-          String::NewFromUtf8(isolate, "col", NewStringType::kNormal).ToLocalChecked(),
-          Integer::New(isolate, frame->GetColumn())
+        context,
+        String::NewFromUtf8(isolate, "col", NewStringType::kNormal).ToLocalChecked(),
+        Integer::New(isolate, frame->GetColumn())
       ).ToChecked();
       stackArray->Set(context, i, resFrame).ToChecked();
     }
 
     result->Set(
-        context,
-        String::NewFromUtf8(isolate, "stacktrace", NewStringType::kNormal).ToLocalChecked(),
-        stackArray
+      context,
+      String::NewFromUtf8(isolate, "stacktrace", NewStringType::kNormal).ToLocalChecked(),
+      stackArray
     ).ToChecked();
   }
 
   result->Set(
-      context,
-      String::NewFromUtf8(isolate, "origin", NewStringType::kNormal).ToLocalChecked(),
-      message->GetScriptOrigin().ResourceName()
+    context,
+    String::NewFromUtf8(isolate, "origin", NewStringType::kNormal).ToLocalChecked(),
+    message->GetScriptOrigin().ResourceName()
   ).ToChecked();
   result->Set(
-      context,
-      String::NewFromUtf8(isolate, "message", NewStringType::kNormal).ToLocalChecked(),
-      message->Get()
+    context,
+    String::NewFromUtf8(isolate, "message", NewStringType::kNormal).ToLocalChecked(),
+    message->Get()
   ).ToChecked();
   return handle_scope.Escape(result);
 }
@@ -367,7 +370,8 @@ void V8EngineNative::__yield(const FunctionCallbackInfo<Value> &info) {
   string res = ptr->yield(json);
 
   // Return the yield result
-  Local<String> resLocalStr = String::NewFromUtf8(info.GetIsolate(), res.c_str(), NewStringType::kNormal).ToLocalChecked();
+  Local<String> resLocalStr = String::NewFromUtf8(info.GetIsolate(), res.c_str(),
+                                                  NewStringType::kNormal).ToLocalChecked();
   info.GetReturnValue().Set(resLocalStr);
 }
 
@@ -382,13 +386,14 @@ void V8EngineNative::__compile(const FunctionCallbackInfo<Value> &info) {
 
   if (!filenameVal->IsString()) {
     info.GetIsolate()->ThrowException(
-        String::NewFromUtf8(info.GetIsolate(), "Compile filename must be a string", NewStringType::kNormal).ToLocalChecked()
+      String::NewFromUtf8(info.GetIsolate(), "Compile filename must be a string",
+                          NewStringType::kNormal).ToLocalChecked()
     );
     return;
   }
   if (!srcVal->IsString()) {
     info.GetIsolate()->ThrowException(
-        String::NewFromUtf8(info.GetIsolate(), "Compile src must be a string", NewStringType::kNormal).ToLocalChecked()
+      String::NewFromUtf8(info.GetIsolate(), "Compile src must be a string", NewStringType::kNormal).ToLocalChecked()
     );
     return;
   }

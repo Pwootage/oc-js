@@ -16,6 +16,22 @@ public class V8Static {
     return initialized;
   }
 
+  public static String getPlatform() {
+    String os = System.getProperty("os.name").toLowerCase();
+    String arch = System.getProperty("os.arch").toLowerCase();
+    if (!(arch.contains("x") && arch.contains("64"))) {
+      throw new Error("OC-JS only supports x86_64 for now");
+    }
+    if (os.contains("win")) {
+      return "windows.x64";
+    } else if (os.contains("mac")) {
+      return "macos.x64";
+    } else {
+      // Sorry, anyone that's not one of the Big Three, I guess
+      return "linux.x64";
+    }
+  }
+
   public static synchronized void initialize() {
     if (initialized) {
       return;
@@ -32,9 +48,10 @@ public class V8Static {
   }
 
   private static void loadBlobs() throws IOException {
-    icudtl = loadBytes("/assets/oc-js/v8/icudtl.dat");
-    natives_blob = loadBytes("/assets/oc-js/v8/natives_blob.bin");
-    snapshot_blob = loadBytes("/assets/oc-js/v8/snapshot_blob.bin");
+    String platform = getPlatform();
+    icudtl = loadBytes("/assets/oc-js/v8/" + platform + "/icudtl.dat");
+    natives_blob = loadBytes("/assets/oc-js/v8/" + platform + "/natives_blob.bin");
+    snapshot_blob = loadBytes("/assets/oc-js/v8/" + platform + "/snapshot_blob.bin");
   }
 
   private static ByteBuffer loadBytes(String path) throws IOException {
