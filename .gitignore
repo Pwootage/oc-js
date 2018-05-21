@@ -25,3 +25,8 @@ src/main/resources/assets/oc-js/os
 native/cmake-build-debug
 native/gen/
 native/v8/
+
+# sim stuff
+os.js/simulator/root
+os.js/simulator/bios.js
+os.js/simulator/bootloader.js

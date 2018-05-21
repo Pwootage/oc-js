@@ -15,10 +15,10 @@
     "paths": {
       "*": [
         "*",
-        "*",
         "usr/lib/*"
       ]
     },
+    "typeRoots": [],
     "lib": ["es2015"]
   },
   "exclude": [

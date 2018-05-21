@@ -8,6 +8,12 @@ class OS {
   constructor() {
     let gpu: GPUComponent = component.first('gpu');
     let screen: ScreenComponent = component.first('screen');
+    if (!gpu) {
+      $bios.crash('Missing GPU!');
+    }
+    if (!screen) {
+      $bios.crash('Missing screen!');
+    }
     gpu.bind(screen.uuid);
     gpu.fill(0, 0, gpu.getResolution()[0] + 1, gpu.getResolution()[1] + 1, 'X');
 

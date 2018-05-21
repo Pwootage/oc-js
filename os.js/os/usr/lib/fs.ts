@@ -2,8 +2,6 @@ import * as path from './path';
 import {FilesystemComponentAPI} from './externalComponents';
 
 class File {
-  valid: boolean;
-
   constructor(private fs: FilesystemComponentAPI, private handle: number) {
   }
 
