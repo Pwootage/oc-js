@@ -1,6 +1,6 @@
 // Do nothing but cause this to actually compile
 // ¯\_(ツ)_/¯
-import {} from '';
+import {} from 'usr/lib/kernel';
 
 declare global {
   const require: (file: string) => any;

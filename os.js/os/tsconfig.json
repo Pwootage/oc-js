@@ -1,18 +1,20 @@
 {
   "compilerOptions": {
     "target": "es2017",
-    "module": "none",
+    "module": "commonjs",
     "allowJs": true,
 
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
-    "removeComments": true,
     "strict": true,
-    "outDir": "../../resources/assets/oc-js/bios/",
-    "baseUrl": ".",
+
+    "outDir": "../../src/main/resources/assets/oc-js/os/",
+
+    "baseUrl": "./",
     "paths": {
       "*": [
+        "*",
         "*",
         "usr/lib/*"
       ]
@@ -20,12 +22,6 @@
     "lib": ["es2015"]
   },
   "exclude": [
-  ],
-  "files": [
-    "bios.ts",
-    "bootloader.ts",
-    "../os/usr/lib/bios.d.ts",
-    "../os/usr/lib/externalComponents.d.ts"
   ],
   "compileOnSave": true,
   "atom": {

@@ -1,5 +1,5 @@
-import { Term } from 'term';
-import { component } from 'component';
+import { Term } from 'usr/lib/term';
+import { component } from 'usr/lib/component';
 import { GPUComponent, ScreenComponent } from './externalComponents';
 
 class OS {

@@ -1,0 +1,15 @@
+{
+  "name": "oc-v8-simulator",
+  "version": "1.0.0",
+  "description": "Simulator for oc-v8",
+  "main": "build/main.js",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^10.1.2",
+    "@types/sleep": "^0.0.7",
+    "sleep": "^5.1.1",
+    "source-map-support": "^0.5.6",
+    "ts-node": "^6.0.3",
+    "typescript": "^2.8.3"
+  }
+}

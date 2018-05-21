@@ -1,0 +1,1 @@
+../../src/main/resources/assets/oc-js/bios/bios.js

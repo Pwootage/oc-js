@@ -1,4 +1,9 @@
-import { EEPROMComponentAPI, FilesystemComponentAPI, GPUComponent } from '../os/usr/lib/externalComponents';
+import {EEPROMComponentAPI, FilesystemComponentAPI, GPUComponent} from '../os/usr/lib/externalComponents';
+import {
+  CompileResult,
+  BiosYieldResult,
+  BiosYield, __yieldFunction, __compileFunction
+} from './biosDefinitions';
 
 // Set up global ref
 Object.defineProperty(global, 'global', {
@@ -6,40 +11,11 @@ Object.defineProperty(global, 'global', {
   value: global,
   writable: false,
   configurable: false
-})
+});
 
 //Private interfaces
-interface ComponentInvokeParams {
-  address: string,
-  name: string,
-  args: any[]
-}
-
-interface CompileResult {
-  state: 'success' | 'error';
-}
-
-type BiosYieldParams = [ComponentInvokeParams] | any[];
-
-type BiosYield = BiosYieldCall | BiosYieldSleep;
-
-interface BiosYieldCall {
-  type: 'call';
-  name: string;
-  args: BiosYieldParams;
-}
-
-interface BiosYieldSleep {
-  type: 'sleep';
-  duration: number;
-}
-
-interface BiosYieldResult {
-  state: 'error' | 'success';
-  value: any;
-}
-declare function __yield(call: BiosYield): string;
-declare function __compile(file: string, src: string): any;
+declare var __yield: __yieldFunction;
+declare var __compile: __compileFunction;
 
 function biosYield<T>(call: BiosYield): T {
   const biosResJson = __yield(call);
@@ -57,7 +33,7 @@ class BiosComponentApiImpl implements BiosComponentApi {
   list(filter?: string | RegExp): ComponentInfo[] {
     const arr = biosYield<ComponentInfo[]>({
       type: 'call',
-      name: "component.list",
+      name: 'component.list',
       args: ['']
     });
     if (filter) {
@@ -229,16 +205,17 @@ type EventHandler = (...args: any[]) => void;
 class EventEmitter {
   private listeners = new Map<string, EventHandler[]>();
 
-  constructor() {}
+  constructor() {
+  }
 
-  on(name:string, fn: EventHandler): DeregFunction {
+  on(name: string, fn: EventHandler): DeregFunction {
     let arr = this.listeners.get(name) || [];
     arr.push(fn);
     this.listeners.set(name, arr);
     return this.deregister.bind(this, name, fn);
   }
 
-  emit(name:string, ...args: any[]): void {
+  emit(name: string, ...args: any[]): void {
     (this.listeners.get(name) || []).forEach(v => v(...args));
   }
 
@@ -252,13 +229,14 @@ class EventEmitter {
     }
   }
 }
+
 global.EventEmitter = EventEmitter;
 
 class BiosApiImpl implements BiosApi {
   component = new BiosComponentApiImpl();
   computer = new BiosComputerApiImpl();
-  //Set by the bootloader
-  bootFS: FilesystemComponentAPI;
+  /** Set by the bootloader */
+  bootFS!: FilesystemComponentAPI;
   signals = new EventEmitter();
 
   crash(msg: string): void {

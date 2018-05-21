@@ -1,5 +1,5 @@
 /** Contains config options for a terminal */
-import {GPUComponent} from 'externalComponents';
+import {GPUComponent} from 'usr/lib/externalComponents';
 
 export interface TermConfig {
   /** X starting position on screen (default: 1) */

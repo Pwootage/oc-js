@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "commonjs",
+    "allowJs": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "preserveConstEnums": true,
+    "strict": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "checkJs": true,
+
+    "outDir": "./build/",
+    "lib": ["es2015"],
+    "rootDir": "./",
+    "typeRoots": [
+      "node_modules/@types"
+    ]
+  },
+  "include": [
+    "start.js",
+    "**/*.ts"
+  ],
+  "exclude": [
+    "build/"
+  ],
+  "compileOnSave": true
+}
