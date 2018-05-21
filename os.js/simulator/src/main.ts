@@ -2,9 +2,13 @@ import * as vm from 'vm';
 import {OCSandbox} from "./OCSandbox";
 import * as fs from "fs";
 import * as path from "path";
+import {EEPROMComponent} from "./components/EEPROMComponent";
 
 export function main(args: string[]) {
   const context = new OCSandbox();
+  context.registerComponent(new EEPROMComponent(path.resolve(process.cwd(), 'eeprom.js')));
+
+
   let biosPath = path.resolve(process.cwd(), 'bios.js');
   if (!fs.existsSync(biosPath)) {
     biosPath = path.resolve(__dirname, '../../src/main/resources/assets/oc-js/bios/bios.js');

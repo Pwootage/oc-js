@@ -26,7 +26,18 @@ export class OCSandbox {
     vm.createContext(this.sandbox);
   }
 
-  biosYield(req: BiosYield): BiosYieldResult {
+  biosCompile(file: string, src: string): any {
+    return vm.runInContext(src, this.sandbox, {
+      filename: file,
+      displayErrors: true
+    });
+  }
+
+  registerComponent(component: OCComponent) {
+    this.components.set(component.id, component);
+  }
+
+  private biosYield(req: BiosYield): BiosYieldResult {
     if (req.type == 'call') {
       return this.biosCall(req);
     } else if (req.type == 'sleep') {
@@ -43,13 +54,6 @@ export class OCSandbox {
     }
   }
 
-  biosCompile(file: string, src: string): any {
-    return vm.runInContext(src, this.sandbox, {
-      filename: file,
-      displayErrors: true
-    });
-  }
-
   private biosCall(req: BiosYieldCall): BiosYieldResult {
     if (req.name == 'bios.crash') {
       throw new Error(`Bios crash: ${req.args.join(', ')}`)
@@ -64,6 +68,20 @@ export class OCSandbox {
         res.push({uuid: key, type: value.type});
       }
       return {state: 'success', value: res}
+    } else if (req.name == 'component.methods') {
+      const component = this.components.get(req.args[0]);
+      if (!component) {
+        return {state: 'success', value: null}
+      }
+      const res: any[] = [];
+      for (const [key, value] of component.methods) {
+        const item = {
+          ...value
+        };
+        delete item.fn;
+        res.push(item);
+      }
+      return {state: 'success', value: res};
     } else {
       return {state: 'error', value: `Unknown call ${req.name}`}
     }

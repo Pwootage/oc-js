@@ -52,7 +52,7 @@ class BiosComponentApiImpl implements BiosComponentApi {
       type: 'call',
       name: 'component.invoke',
       args: [address, name, args]
-    })
+    });
     // $bios.log(`Component invoke res ${name}/${JSON.stringify(res)}`);
     if (!res || res.length == 0) {
       return undefined;
