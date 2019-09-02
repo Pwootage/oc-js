@@ -65,19 +65,16 @@ SpiderMonkeyEngineNative::SpiderMonkeyEngineNative(JNIEnv *env, jobject obj) {
 }
 
 SpiderMonkeyEngineNative::~SpiderMonkeyEngineNative() {
-  this->next(uR"({"state": "error", "value": "kill"})");
+  debug_print(u"JS main thread kill");
   shouldKill = true;
-  JS_RequestInterruptCallback(this->context);
-  this->mainThread.join();
-  //TODO: safe/not busy wait
-  while (!isDead) {
-    // wait
+  if (!isDead) {
+    debug_print(u"JS main thread is not dead");
+    JS_RequestInterruptCallback(this->context);
+    this->next(uR"({"state": "error", "value": "kill"})");
   }
-
-  delete this->globalObject;
-  this->globalObject = nullptr;
-  JS_DestroyContext(this->context);
-  this->context = nullptr;
+  debug_print(u"JS waiting for main thread");
+  this->mainThread.join();
+  debug_print(u"JS main thread kill complete");
 }
 
 SpiderMonkeyEngineNative::JNIPtr SpiderMonkeyEngineNative::getEnv() {
@@ -121,59 +118,70 @@ future<u16string> SpiderMonkeyEngineNative::next(u16string next) {
 }
 
 void SpiderMonkeyEngineNative::mainThreadFn() {
+  // Lock the engine
+  this->engineLock = unique_lock(this->executionMutex);
+
+  debug_print(u"JS main thread start");
+
   //init
   this->context = JS_NewContext(1L * 1024 * 1024);
   if (this->context) {
     //TODO: Throw java exception
   }
-  
+
   if (!JS::InitSelfHostedCode(this->context)) {
     //TODO: Throw java exception
   }
-
-  JS::RealmOptions options;
-  this->globalObject = new JS::RootedObject(
-    this->context,
-    JS_NewGlobalObject(
+  {
+    JS::RealmOptions options;
+    this->globalObject = new JS::RootedObject(
       this->context,
-      &global_class,
-      nullptr,
-      JS::FireOnNewGlobalHook,
-      options
-    )
-  );
+      JS_NewGlobalObject(
+        this->context,
+        &global_class,
+        nullptr,
+        JS::FireOnNewGlobalHook,
+        options
+      )
+    );
 
-  JSAutoRealm ar(this->context, *this->globalObject);
-  if (!JS::InitRealmStandardClasses(this->context)) {
-    // TODO: throw java exceptin
-  };
+    JSAutoRealm ar(this->context, *this->globalObject);
+    if (!JS::InitRealmStandardClasses(this->context)) {
+      // TODO: throw java exceptin
+    };
 
-  if (!JS_DefineFunction(this->context, *this->globalObject, "__yield", __yield, 1, 0)) {
-    // TODO: throw java exception
+    if (!JS_DefineFunction(this->context, *this->globalObject, "__yield", __yield, 1, 0)) {
+      // TODO: throw java exception
+    }
+    if (!JS_DefineFunction(this->context, *this->globalObject, "__compile", __compile, 2, 0)) {
+      // TODO: throw java exception
+    }
+
+    if (!JS_AddInterruptCallback(this->context, interruptCallback)) {
+      // TODO: throw java exception
+    }
+
+    JS_SetContextPrivate(this->context, this);
+
+    // First yield to get code to execute
+    u16string src = this->yield(u"{\"type\": \"__bios__\"}");
+    u16string res = this->compileAndExecute(src, u"__bios__");
+    this->deadResult = make_optional(res);
+    if (this->outputPromise.has_value()) {
+      this->outputPromise->set_value(res);
+    }
+    // We're now dead and can't execute anymore. :'(
+    this->isDead = true;
+
+    delete this->globalObject;
+    this->globalObject = nullptr;
   }
-  if (!JS_DefineFunction(this->context, *this->globalObject, "__compile", __compile, 2, 0)) {
-    // TODO: throw java exception
-  }
+  JS_DestroyContext(this->context);
+  this->context = nullptr;
 
-  if (!JS_AddInterruptCallback(this->context, interruptCallback)) {
-    // TODO: throw java exception
-  }
+  debug_print(u"JS main thread end");
 
-  JS_SetContextPrivate(this->context, this);
-
-  // Lock the engine
-  this->engineLock = unique_lock(this->executionMutex);
-
-  // First yield to get code to execute
-  u16string src = this->yield(u"{\"state\": \"__bios__\"}");
-  u16string res = this->compileAndExecute(src, u"__bios__");
-  this->deadResult = make_optional(res);
-  if (this->outputPromise.has_value()) {
-    this->outputPromise->set_value(res);
-  }
-  // We're now dead and can't execute anymore. :'(
   this->engineLock.unlock();
-  this->engineLock = unique_lock<mutex>();
 }
 
 u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
@@ -190,7 +198,7 @@ u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
 u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string filename) {
   auto env = getEnv();
 
-  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>,char16_t> convert;
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   string fileString = convert.to_bytes(filename);
 
   JS::CompileOptions compileOpts(this->context);
@@ -198,30 +206,34 @@ u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string f
   JS::SourceText<char16_t> srcBuff;
   if (!srcBuff.init(this->context, src.c_str(), src.length(), JS::SourceOwnership::Borrowed)) {
     // TODO: throw error
-    return u"";
+    return u"src buff failed to init";
   }
 
   JS::RootedValue res(this->context);
   if (!JS::Evaluate(this->context, compileOpts, srcBuff, &res)) {
     // TODO: throw error
-    return u"";
+    return u"evaluate failed";
   }
 
-  //TODO: catch js exception
-
-
+  //TODO: catch js exception somehow
   JS::RootedString resStr(this->context, JS::ToString(this->context, res));
 
   if (!resStr) {
     // TODO: throw error
-    return u"";
+    return u"Result was not a string";
   }
 
   // Usual return type: {"type": "exec_cmd", "result": <whatever it returned>}
 
   size_t len = JS_GetStringLength(resStr);
-  if (len > MAX_STR_SIZE) return u"";// TODO: throw error
-  return u16string(JS_GetTwoByteExternalStringChars(resStr), len);
+  if (len > MAX_STR_SIZE) return u"string was too long";// TODO: throw error
+
+  u16string resu16;
+  resu16.resize(len);
+  if (!JS_CopyStringChars(this->context, mozilla::Range<char16_t>(resu16.data(), resu16.length()), resStr)) {
+    return u"Failed to copy string chars"; // todo: throw error
+  }
+  return resu16;
 }
 
 //Local <Object> SpiderMonkeyEngineNative::convertException(Local <Context> context, TryCatch &tryCatch) {
@@ -350,32 +362,33 @@ bool SpiderMonkeyEngineNative::__compile(JSContext *ctx, unsigned argc, JS::Valu
 
   JS::CompileOptions compileOpts(ctx);
   compileOpts.setFileAndLine(filenameVal.c_str(), 1);
+  compileOpts.setMutedErrors(false);
   JS::SourceText<char16_t> srcBuff;
-  if (!srcBuff.init(ctx, srcVal.c_str(), srcVal.length(), JS::SourceOwnership::Borrowed)) {
-    // TODO: throw error
+  int res;
+  if (!(res = srcBuff.init(ctx, srcVal.c_str(), srcVal.length(), JS::SourceOwnership::Borrowed))) {
+    JS_ReportErrorASCII(ctx, "Failed to load source with error code %d", res);
     return false;
   }
-  // TODO: error handling?
   JS::RootedObjectVector emptyScopeChain(ctx);
-  JS::RootedFunction func(ctx, JS::CompileFunction(ctx, emptyScopeChain, compileOpts, "__compiled_func", 0, nullptr, srcBuff));
-  args.rval().setObject(*JS_GetFunctionObject(func));
-  return true;
+  return JS::Evaluate(ctx, compileOpts, srcBuff, args.rval());
 }
 
 bool SpiderMonkeyEngineNative::interruptCallback(JSContext *ctx) {
   auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
 
+  printf("Interrupt callback: %d\n", !native->shouldKill);
   //TODO: check timer and stuff
-  return native->shouldKill;
+  return !native->shouldKill;
 }
 
 string SpiderMonkeyEngineNative::getU8String(JSContext *ctx, const JS::HandleValue &handle) {
+  // can error with JS_ReportError
   JS::RootedString str(ctx, JS::ToString(ctx, handle));
-  if (!str) return "";// TODO: throw error?
+  if (!str) return "failed to get u8 str";// TODO: throw error?
   JSFlatString *flatString = JS_FlattenString(ctx, str);
-  if (!flatString) return "";// TODO: throw error?
+  if (!flatString) return "failed to flatten u8 str";// TODO: throw error?
   size_t len = JS::GetDeflatedUTF8StringLength(flatString);
-  if (len > MAX_STR_SIZE) return "";// TODO: throw error
+  if (len > MAX_STR_SIZE) return "u8str too long";// TODO: throw error
 
 //  JS::UniqueChars strChars = JS_EncodeStringToUTF8(ctx, str);
   string res;
@@ -386,13 +399,20 @@ string SpiderMonkeyEngineNative::getU8String(JSContext *ctx, const JS::HandleVal
 
 u16string SpiderMonkeyEngineNative::getU16String(JSContext *ctx, const JS::HandleValue &handle) {
   JS::RootedString str(ctx, JS::ToString(ctx, handle));
-  if (!str) return u"";// TODO: throw error?
+  if (!str) return u"failed to get u16 str";// TODO: throw error?
   size_t len = JS_GetStringLength(str);
-  if (len > MAX_STR_SIZE) return u"";// TODO: throw error
+  if (len > MAX_STR_SIZE) return u"u16str too long";// TODO: throw error
   u16string res;
   res.resize(len);
   if (!JS_CopyStringChars(ctx, mozilla::Range<char16_t>(res.data(), res.length()), str)) {
-    return u""; // todo: throw error
+    return u"failed to copy u16str"; // todo: throw error
   }
   return res;
+}
+
+void SpiderMonkeyEngineNative::debug_print(const std::u16string &str) {
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+  string fileString = convert.to_bytes(str);
+  printf("%s\n", fileString.c_str());
+  fflush(stdout);
 }

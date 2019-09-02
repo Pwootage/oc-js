@@ -276,11 +276,31 @@ if (!eeprom) {
 } else {
   // Load eeprom main
   let eepromSrc = eeprom.get();
+  let actaullyCompiledSrc = '';
   try {
-    $bios.compile('eeprom', `(function(global, exports, define){${eepromSrc}
-    })(global, {});`);
+    actaullyCompiledSrc = `(function(global, exports, define){${eepromSrc}
+    })(global, {});`;
+    $bios.compile('eeprom', actaullyCompiledSrc);
     throw new Error('EEPROM ended execution');
   } catch (error) {
-    $bios.crash(error.stack.toString());
+    if (error) {
+      const line = error.lineNumber - 1;
+      const col = error.columnNumber - 1;
+      const lines = actaullyCompiledSrc.split('\n');
+
+      let context = '';
+      if (line - 1 >= 0) {
+        context += lines[line - 1] + '\n';
+      }
+      context += lines[line] + '\n';
+      context += ' '.repeat(col - 1) + '^' + '\n';
+      if (line + 1 < lines.length) {
+        context += lines[line + 1];
+      }
+
+      $bios.crash(`Failed to compile eeprom: ${error.filename}:${error.lineNumber}:${error.columnNumber} ${error.name}/${error.message}:\n${context}`);
+    } else {
+      $bios.crash(`Failed to compile eeprom: unknown error`);
+    }
   }
 }

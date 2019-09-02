@@ -7,7 +7,6 @@ import java.util.{Timer, TimerTask}
 
 import com.google.common.io.ByteStreams
 import com.pwootage.oc.js.spidermonkey.{SpiderMonkeyArchitecture, SpiderMonkeyStatic}
-import com.pwootage.oc.js.v8.{V8Architecture, V8Static}
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
 import net.minecraftforge.fml.common.Mod
@@ -53,21 +52,18 @@ object OCJS {
         e.printStackTrace()
         throw e;
     }
-    V8Static.initialize()
-//    SpiderMonkeyStatic.initialize()
-    log.info("Loaded duktape natives")
+    SpiderMonkeyStatic.initialize()
+    log.info("Loaded ocjs natives")
 
-    //    Machine.add(classOf[NashornArchitecture])
     //    Machine.add(classOf[DuktapeArchitecture])
-    Machine.add(classOf[V8Architecture])
     Machine.add(classOf[SpiderMonkeyArchitecture])
 
-    val is = classOf[V8Architecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
+    val is = classOf[SpiderMonkeyArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
     Items.registerEEPROM("EEPROM (jsboot)", ByteStreams.toByteArray(is), null, true)
     is.close()
 
     Items.registerFloppy("oc.js", EnumDyeColor.LIGHT_BLUE, new Callable[fs.FileSystem] {
-      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[V8Architecture], "oc-js", "os/")
+      override def call(): fs.FileSystem = FileSystem.fromClass(classOf[SpiderMonkeyArchitecture], "oc-js", "os/")
     }, true)
 
     val t = new Timer()
@@ -76,7 +72,7 @@ object OCJS {
         log.info(pid)
       }
     }
-        t.scheduleAtFixedRate(task, 2000, 2000)
+//        t.scheduleAtFixedRate(task, 2000, 2000)
   }
 
   @EventHandler

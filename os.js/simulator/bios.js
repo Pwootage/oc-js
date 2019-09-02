@@ -248,6 +248,6 @@ else {
         throw new Error('EEPROM ended execution');
     }
     catch (error) {
-        $bios.crash(error.stack.toString());
+        $bios.crash('Failed to compile eeprom: ' + error.stack.toString());
     }
 }

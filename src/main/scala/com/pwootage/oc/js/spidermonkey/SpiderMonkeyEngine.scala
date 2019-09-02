@@ -54,8 +54,17 @@ class SpiderMonkeyEngine(arch: SpiderMonkeyArchitecture) extends JSEngine {
         case x=> x.toJSON
       }
       val nativeRes = native_next(jsNextStr)
-      val jsYield = JSValue.fromJSON(nativeRes)
+      val jsYield = try {
+        JSValue.fromJSON(nativeRes)
+      } catch {
+        case e: Throwable =>
+          println("Bad native res: " + nativeRes)
+          e.printStackTrace()
+          throw e
+      }
       jsYield.property("type").asString match {
+        case Some("__bios__") =>
+          RunThreadedResultSleep(0)
         case Some("sleep") =>
           RunThreadedResultSleep(
             (jsYield.property("duration").asDouble.getOrElse(0.05) * 20).toInt.max(1)

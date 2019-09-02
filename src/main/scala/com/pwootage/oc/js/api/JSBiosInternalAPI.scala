@@ -6,7 +6,8 @@ import li.cil.oc.api.machine.Machine
 
 class JSBiosInternalAPI(machine: Machine, scriptEngine: JSEngine) {
   def log(msg: String): Unit = {
-    OCJS.log.error(msg)
+    // No-op for speeeed
+//    OCJS.log.error(msg)
   }
 
   def crash(msg: String): Unit = {

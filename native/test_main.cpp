@@ -1,8 +1,5 @@
-#include "include/v8.h"
-#include "include/libplatform/libplatform.h"
 #include <thread>
 
-using namespace v8;
 using namespace std;
 
 #include <jsapi.h>

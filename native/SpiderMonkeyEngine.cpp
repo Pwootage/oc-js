@@ -46,10 +46,12 @@ Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1next(JNIEnv *env
     u16string nextVal(reinterpret_cast<const char16_t *>(utfChars));
     env->ReleaseStringChars(next, utfChars);
 
+//    SpiderMonkeyEngineNative::debug_print(u"Recieved next: " + nextVal);
     future<u16string> resFuture = engine->next(nextVal);
     auto status = resFuture.wait_for(chrono::seconds(1));
     if (status == future_status::ready) {
       u16string res = resFuture.get();
+//      SpiderMonkeyEngineNative::debug_print(u"Recieved next result: " + res);
       // Again, jchar is compatible
       return env->NewString(reinterpret_cast<const jchar *>(res.c_str()), res.length());
     } else {

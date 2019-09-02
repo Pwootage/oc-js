@@ -14,8 +14,6 @@
 #include <mutex>
 #include <optional>
 #include <jsapi.h>
-//#include "include/v8.h"
-//#include "include/libplatform/libplatform.h"
 
 /**
  * The native equivalent of SpiderMonkeyEngine, where all the SpiderMonkey-related classes are stored.
@@ -34,11 +32,12 @@ public:
   static void setToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data);
 
   std::thread mainThread;
-  JSContext *getContext();
 
   std::future<std::u16string> next(std::u16string next);
 
   static constexpr size_t MAX_STR_SIZE = 1024 * 1024;
+
+  static void debug_print(const std::u16string& str);
 private:
   // JVM Stuff
   JavaVM *javaVM{nullptr};
