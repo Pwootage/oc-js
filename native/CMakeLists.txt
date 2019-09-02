@@ -4,9 +4,9 @@ project(ocjs)
 set(CMAKE_CXX_STANDARD 17)
 
 # Compiler options
-#add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
-add_compile_options(-O0 -g -Wall -fstrict-aliasing -stdlib=libc++)
-add_definitions(-DDEBUG)
+add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
+#add_compile_options(-O0 -g -Wall -fstrict-aliasing -stdlib=libc++)
+#add_definitions(-DDEBUG)
 
 # Libraries
 find_package(Java REQUIRED)
@@ -69,9 +69,7 @@ elseif (APPLE)
     POST_BUILD COMMAND
     ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../../Frameworks/"
     $<TARGET_FILE:ocjs>)
-  target_link_libraries(ocjs
-    #    ${CMAKE_SOURCE_DIR}/spidermonkey/macos.x64/libjs_static.ajs
-    )
+  target_link_libraries(ocjs)
 else ()
   target_link_libraries(ocjs
     z

@@ -136,10 +136,10 @@ void SpiderMonkeyEngineNative::mainThreadFn() {
 
 //    printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_BYTES));
   printf("Debug JSGC_MAX_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_MAX_BYTES));
-  JS_SetGCParameter(this->context, JSGC_MAX_BYTES, 700000);
-  JS_SetGCParameter(this->context, JSGC_MAX_MALLOC_BYTES, 700000);
+  JS_SetGCParameter(this->context, JSGC_MAX_BYTES, 32*1024*1024);
+//  JS_SetGCParameter(this->context, JSGC_MAX_MALLOC_BYTES, 32*1024*1024);
   JS_SetNativeStackQuota(this->context, 256 * 1024);
-  JS_SetGCParametersBasedOnAvailableMemory(this->context, 700000);
+  JS_SetGCParametersBasedOnAvailableMemory(this->context, 32*1024*1024);
 
   printf("Debug JSGC_MAX_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_MAX_BYTES));
 
@@ -209,6 +209,8 @@ u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
 
 u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string filename) {
   auto env = getEnv();
+
+  JSAutoRealm ar(this->context, *this->globalObject);
 
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   string fileString = convert.to_bytes(filename);
@@ -349,9 +351,6 @@ u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string f
 //}
 
 bool SpiderMonkeyEngineNative::__yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
-  printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_BYTES));
-  printf("Debug JSGC_MAX_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_MAX_BYTES));
-
   // Grab the engine
   auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -368,7 +367,6 @@ bool SpiderMonkeyEngineNative::__yield(JSContext *ctx, unsigned argc, JS::Value 
 }
 
 bool SpiderMonkeyEngineNative::__compile(JSContext *ctx, unsigned argc, JS::Value *vp) {
-//  auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   // pull out args

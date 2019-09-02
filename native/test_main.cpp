@@ -8,6 +8,7 @@ using namespace std;
 #include <js/JSON.h>
 #include <js/CompilationAndEvaluation.h>
 #include <js/SourceText.h>
+#include <codecvt>
 
 
 using namespace JS;
@@ -45,12 +46,19 @@ u16string getU16String(JSContext *ctx, const JS::HandleValue &handle) {
   JS::RootedString str(ctx, JS::ToString(ctx, handle));
   if (!str) return u"";// TODO: throw error?
   size_t len = JS_GetStringLength(str);
-  if (len > 1024*1024) return u"";// TODO: throw error
+  if (len > 1024 * 1024) return u"";// TODO: throw error
 
   u16string res;
   res.resize(len);
   JS_CopyStringChars(ctx, mozilla::Range<char16_t>(res.data(), res.length()), str);
   return res;
+}
+
+bool GCINFO(JSContext *ctx, unsigned argc, JS::Value *vp) {
+  JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+  RootedObject obj(ctx, js::gc::NewMemoryInfoObject(ctx));
+  args.rval().setObject(*obj);
+  return true;
 }
 
 bool __yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
@@ -63,6 +71,11 @@ bool __yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
   // pull out args
   u16string json = getU16String(ctx, args[0]);
 
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+  string fileString = convert.to_bytes(json);
+  printf("%s\n", fileString.c_str());
+  fflush(stdout);
+
   // yield
   u16string res = json;
 
@@ -71,22 +84,32 @@ bool __yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
   return true;
 }
 
-int main(int argc, const char *argv[])
-{
+int main(int argc, const char *argv[]) {
   JS_Init();
 
   JSContext *ctx = JS_NewContext(8L * 1024 * 1024);
   if (!ctx) return 1;
+
+  JS_SetGCParameter(ctx, JSGC_MAX_BYTES, 32*1024*1024);
+  JS_SetGCParameter(ctx, JSGC_ALLOCATION_THRESHOLD, 1024*1024);
+  JS_SetGCParameter(ctx, JSGC_MAX_MALLOC_BYTES, 32*1024*1024);
+//  JS_SetGCParameter(ctx, JSGC_MIN_NURSERY_BYTES, 1);
+  JS_SetGCParameter(ctx, JSGC_MAX_NURSERY_BYTES, 0);
+
   if (!InitSelfHostedCode(ctx)) return 2;
 
   printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_BYTES));
-  JS_SetGCParameter(ctx, JSGC_MAX_BYTES, 700000);
-  JS_SetGCParameter(ctx, JSGC_MAX_MALLOC_BYTES, 700000);
   JS_SetNativeStackQuota(ctx, 256 * 1024);
-  JS_SetGCParametersBasedOnAvailableMemory(ctx, 700000);
+//  JS_SetGCParametersBasedOnAvailableMemory(ctx, 700000);
 
   {
     RealmOptions options;
+    options.creationOptions()
+      .setSharedMemoryAndAtomicsEnabled(false)
+      .setNewCompartmentAndZone()
+      .setSecureContext(false)
+      .setPreserveJitCode(false)
+      .setMergeable(false);
     RootedObject global(ctx, JS_NewGlobalObject(ctx, &global_class, nullptr, FireOnNewGlobalHook, options));
     if (!global) return 3;
 
@@ -98,6 +121,7 @@ int main(int argc, const char *argv[])
       JSAutoRealm ar(ctx, global);
       if (!InitRealmStandardClasses(ctx)) return 4;
       if (!JS_DefineFunction(ctx, global, "__yield", __yield, 1, 0)) return 7;
+      if (!JS_DefineFunction(ctx, global, "gcinfo", GCINFO, 0, 0)) return 7;
 
 
       const char16_t *script = uR"('hello '+' world, it is '+new Date()+':'+ __yield('asdf')
@@ -111,10 +135,15 @@ int main(int argc, const char *argv[])
         arr.fill(i);
         huger.push(arr);
         __yield(i);
+        __yield(JSON.stringify(gcinfo()));
       }
     } catch (e) {
       throw e;
     }
+
+//  huger = [];
+//  fun f() { f() }();
+//        __yield('asdf');
 )";
       const size_t script_len = char_traits<char16_t>::length(script);
 

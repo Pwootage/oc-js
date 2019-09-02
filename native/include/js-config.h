@@ -13,7 +13,7 @@
    and installed along with jsapi.h.  */
 
 /* Define to 1 if SpiderMonkey is in debug mode. */
-#define JS_DEBUG 1
+/* #undef JS_DEBUG */
 
 /*
  * NB: We have a special case for rust-bindgen, which wants to be able to
@@ -40,7 +40,7 @@
 
 /* Define to 1 if SpiderMonkey should support the ability to perform
    entirely too much GC.  */
-#define JS_GC_ZEAL 1
+/* #undef JS_GC_ZEAL */
 
 /* Define to 1 if SpiderMonkey should use small chunks. */
 /* #undef JS_GC_SMALL_CHUNK_SIZE */
