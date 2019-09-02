@@ -19,6 +19,8 @@
 #include "js/UniquePtr.h"
 #include "js/Utility.h"
 
+struct JSFreeOp;
+
 #ifdef JS_BROKEN_GCC_ATTRIBUTE_WARNING
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wattributes"
@@ -79,9 +81,18 @@ typedef enum JSGCParamKey {
   JSGC_MAX_BYTES = 0,
 
   /**
+   * Initial value for the malloc bytes threshold.
+   *
+   * Pref: javascript.options.mem.high_water_mark
+   * Default: TuningDefaults::MaxMallocBytes
+   */
+  JSGC_MAX_MALLOC_BYTES = 1,
+
+  /**
    * Maximum size of the generational GC nurseries.
    *
-   * This will be rounded to the nearest gc::ChunkSize.
+   * This will be rounded to the nearest gc::ChunkSize.  The special value 0
+   * will disable generational GC.
    *
    * Pref: javascript.options.mem.nursery.max_kb
    * Default: JS::DefaultNurseryBytes
@@ -130,7 +141,7 @@ typedef enum JSGCParamKey {
    * The "do we collect?" decision depends on various parameters and can be
    * summarised as:
    *
-   *   ZoneSize > Max(ThresholdBase, LastSize) * GrowthFactor * ThresholdFactor
+   *    ZoneSize * 1/UsageFactor > Max(ThresholdBase, LastSize) * GrowthFactor
    *
    * Where
    *   ZoneSize: Current size of this zone.
@@ -139,14 +150,13 @@ typedef enum JSGCParamKey {
    *   GrowthFactor: A number above 1, calculated based on some of the
    *                 following parameters.
    *                 See computeZoneHeapGrowthFactorForHeapSize() in GC.cpp
-   *   ThresholdFactor: 1.0 for incremental collections or
-   *                    JSGC_NON_INCREMENTAL_FACTOR or
-   *                    JSGC_AVOID_INTERRUPT_FACTOR for non-incremental
-   *                    collections.
+   *   UsageFactor: JSGC_ALLOCATION_THRESHOLD_FACTOR or
+   *                JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT or 1.0 for
+   *                non-incremental collections.
    *
    * The RHS of the equation above is calculated and sets
-   * zone->gcHeapThreshold.bytes(). When gcHeapSize.bytes() exeeds
-   * gcHeapThreshold.bytes() for a zone, the zone may be scheduled for a GC.
+   * zone->threshold.gcTriggerBytes(). When usage.gcBytes() surpasses
+   * threshold.gcTriggerBytes() for a zone, the zone may be scheduled for a GC.
    */
 
   /**
@@ -252,26 +262,26 @@ typedef enum JSGCParamKey {
   JSGC_COMPACTING_ENABLED = 23,
 
   /**
-   * Percentage for how far over a trigger threshold we go before triggering a
-   * non-incremental GC.
+   * Percentage for triggering a GC based on zone->threshold.gcTriggerBytes().
    *
-   * We trigger an incremental GC when a trigger threshold is reached but the
-   * collection may not be fast enough to keep up with the mutator. At some
-   * point we finish the collection non-incrementally.
+   * When the heap reaches this percentage of the allocation threshold an
+   * incremental collection is started.
    *
-   * Default: NonIncrementalFactor
+   * Default: ZoneAllocThresholdFactorDefault
    * Pref: None
    */
-  JSGC_NON_INCREMENTAL_FACTOR = 25,
+  JSGC_ALLOCATION_THRESHOLD_FACTOR = 25,
 
   /**
-   * Percentage for how far over a trigger threshold we go before triggering an
-   * incremental collection that would reset an in-progress collection.
+   * Percentage for triggering a GC based on zone->threshold.gcTriggerBytes().
    *
-   * Default: AvoidInterruptFactor
+   * Used instead of the above percentage if if another GC (in different zones)
+   * is already running.
+   *
+   * Default: ZoneAllocThresholdFactorAvoidInterruptDefault
    * Pref: None
    */
-  JSGC_AVOID_INTERRUPT_FACTOR = 26,
+  JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT = 26,
 
   /**
    * Attempt to run a minor GC in the idle time if the free space falls
@@ -320,7 +330,7 @@ typedef enum JSGCParamKey {
    */
   JSGC_MIN_NURSERY_BYTES = 31,
 
-  /**
+  /*
    * The minimum time to allow between triggering last ditch GCs in seconds.
    *
    * Default: 60 seconds
@@ -328,33 +338,13 @@ typedef enum JSGCParamKey {
    */
   JSGC_MIN_LAST_DITCH_GC_PERIOD = 32,
 
-  /**
+  /*
    * The delay (in heapsize kilobytes) between slices of an incremental GC.
    *
    * Default: ZoneAllocDelayBytes
    */
   JSGC_ZONE_ALLOC_DELAY_KB = 33,
 
-  /*
-   * The current size of the nursery.
-   *
-   * read-only.
-   */
-  JSGC_NURSERY_BYTES = 34,
-
-  /**
-   * Retained size base value for calculating malloc heap threshold.
-   *
-   * Default: MallocThresholdBase
-   */
-  JSGC_MALLOC_THRESHOLD_BASE = 35,
-
-  /**
-   * Growth factor for calculating malloc heap threshold.
-   *
-   * Default: MallocGrowthFactor
-   */
-  JSGC_MALLOC_GROWTH_FACTOR = 36,
 } JSGCParamKey;
 
 /*
@@ -446,7 +436,7 @@ namespace JS {
   D(PREPARE_FOR_TRACING, 26)               \
   D(INCREMENTAL_ALLOC_TRIGGER, 27)         \
   D(FULL_CELL_PTR_STR_BUFFER, 28)          \
-  D(TOO_MUCH_JIT_CODE, 29)                 \
+  D(INCREMENTAL_MALLOC_TRIGGER, 29)        \
                                            \
   /* These are reserved for future use. */ \
   D(RESERVED6, 30)                         \

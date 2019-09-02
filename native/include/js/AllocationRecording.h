@@ -20,10 +20,12 @@ namespace JS {
 struct RecordAllocationInfo {
   RecordAllocationInfo(const char16_t* typeName, const char* className,
                        const char16_t* descriptiveTypeName,
-                       const char* coarseType, uint64_t size, bool inNursery)
+                       const char* scriptFilename, const char* coarseType,
+                       uint64_t size, bool inNursery)
       : typeName(typeName),
         className(className),
         descriptiveTypeName(descriptiveTypeName),
+        scriptFilename(scriptFilename),
         coarseType(coarseType),
         size(size),
         inNursery(inNursery) {}
@@ -34,6 +36,7 @@ struct RecordAllocationInfo {
   const char16_t* typeName;
   const char* className;
   const char16_t* descriptiveTypeName;
+  const char* scriptFilename;
 
   // The coarseType points to a string literal, so does not need to be
   // duplicated.

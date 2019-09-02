@@ -55,7 +55,7 @@
 #define JS_PUNBOX64 1
 
 /* MOZILLA JSAPI version number components */
-#define MOZJS_MAJOR_VERSION 70
+#define MOZJS_MAJOR_VERSION 69
 #define MOZJS_MINOR_VERSION 0
 
 #endif /* js_config_h */

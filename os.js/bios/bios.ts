@@ -280,6 +280,24 @@ if (!eeprom) {
   try {
     actaullyCompiledSrc = `(function(global, exports, define){${eepromSrc}
     })(global, {});`;
+
+    const huger = [];
+    let i = 0;
+    try {
+      for (;i<1024; i++) {
+        const arr = new Uint32Array(1024*1024 / 4);
+        arr.fill(i);
+        huger.push(arr);
+        $bios.log('got to ' + i + ' ' + arr[i]);
+      }
+    } catch (e) {
+      $bios.log('got to ' + i);
+      throw e;
+    }
+    for (i = 0; i < 100; i++) {
+      $bios.computer.sleep(1);
+    }
+
     $bios.compile('eeprom', actaullyCompiledSrc);
     throw new Error('EEPROM ended execution');
   } catch (error) {

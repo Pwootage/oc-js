@@ -56,6 +56,8 @@ u16string getU16String(JSContext *ctx, const JS::HandleValue &handle) {
 bool __yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
   // Grab the engine
 //  auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
+
+  printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_BYTES));
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   // pull out args
@@ -77,12 +79,19 @@ int main(int argc, const char *argv[])
   if (!ctx) return 1;
   if (!InitSelfHostedCode(ctx)) return 2;
 
+  printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_BYTES));
+  JS_SetGCParameter(ctx, JSGC_MAX_BYTES, 700000);
+  JS_SetGCParameter(ctx, JSGC_MAX_MALLOC_BYTES, 700000);
+  JS_SetNativeStackQuota(ctx, 256 * 1024);
+  JS_SetGCParametersBasedOnAvailableMemory(ctx, 700000);
+
   {
     RealmOptions options;
     RootedObject global(ctx, JS_NewGlobalObject(ctx, &global_class, nullptr, FireOnNewGlobalHook, options));
     if (!global) return 3;
 
 
+    printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(ctx, JSGC_BYTES));
     RootedValue rval(ctx);
 
     { // Scope for JSAutoRealm
@@ -91,7 +100,22 @@ int main(int argc, const char *argv[])
       if (!JS_DefineFunction(ctx, global, "__yield", __yield, 1, 0)) return 7;
 
 
-      const char16_t *script = u"'hello '+' world, it is '+new Date()+':'+ __yield('asdf')";
+      const char16_t *script = uR"('hello '+' world, it is '+new Date()+':'+ __yield('asdf')
+
+
+    const huger = [];
+    let i = 0;
+    try {
+      for (;i<1024; i++) {
+        const arr = new Uint32Array(1024*1024 / 4);
+        arr.fill(i);
+        huger.push(arr);
+        __yield(i);
+      }
+    } catch (e) {
+      throw e;
+    }
+)";
       const size_t script_len = char_traits<char16_t>::length(script);
 
 

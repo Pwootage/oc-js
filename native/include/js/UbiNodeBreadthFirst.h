@@ -65,11 +65,6 @@ namespace ubi {
 //      Note that |abandonReferent| must be called the first time the given node
 //      is reached; that is, |first| must be true.
 //
-//      The visitor function may call |doNotMarkReferentAsVisited()| if it
-//      does not want a node to be considered 'visited' (and added to the
-//      'visited' set). This is useful when the visitor has custom logic to
-//      determine whether an edge is 'interesting'.
-//
 //      The visitor function may call |traversal.stop()| if it doesn't want
 //      to visit any more nodes at all.
 //
@@ -96,8 +91,7 @@ struct BreadthFirst {
         pending(),
         traversalBegun(false),
         stopRequested(false),
-        abandonRequested(false),
-        markReferentAsVisited(false) {}
+        abandonRequested(false) {}
 
   // Add |node| as a starting point for the traversal. You may add
   // as many starting points as you like. Return false on OOM.
@@ -147,24 +141,19 @@ struct BreadthFirst {
         typename NodeMap::AddPtr a = visited.lookupForAdd(edge.referent);
         bool first = !a;
 
-        // Pass a pointer to a stack-allocated NodeData if the referent is not
-        // in |visited|.
-        typename Handler::NodeData nodeData;
-        typename Handler::NodeData* nodeDataPtr =
-            first ? &nodeData : &a->value();
-
-        // Report this edge to the visitor function.
-        markReferentAsVisited = true;
-        if (!handler(*this, origin, edge, nodeDataPtr, first)) {
-          return false;
-        }
-
-        if (first && markReferentAsVisited) {
-          // This is the first time we've reached |edge.referent| and the
-          // handler wants it marked as visited.
-          if (!visited.add(a, edge.referent, std::move(nodeData))) {
+        if (first) {
+          // This is the first time we've reached |edge.referent|.
+          // Mark it as visited.
+          if (!visited.add(a, edge.referent, typename Handler::NodeData())) {
             return false;
           }
+        }
+
+        MOZ_ASSERT(a);
+
+        // Report this edge to the visitor function.
+        if (!handler(*this, origin, edge, &a->value(), first)) {
+          return false;
         }
 
         if (stopRequested) {
@@ -198,10 +187,6 @@ struct BreadthFirst {
   // traversed. This must be called the first time that referent is reached.
   // Other edges *to* that referent will still be traversed.
   void abandonReferent() { abandonRequested = true; }
-
-  // Request the the current edge's referent not be added to the |visited| set
-  // if this is the first time we're visiting it.
-  void doNotMarkReferentAsVisited() { markReferentAsVisited = false; }
 
   // The context with which we were constructed.
   JSContext* cx;
@@ -259,10 +244,6 @@ struct BreadthFirst {
 
   // True if we've been asked to abandon the current edge's referent.
   bool abandonRequested;
-
-  // True if the node should be added to the |visited| set after calling the
-  // handler.
-  bool markReferentAsVisited;
 };
 
 }  // namespace ubi

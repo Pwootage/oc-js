@@ -1510,7 +1510,9 @@ class HashTable : private AllocPolicy {
   };
 
   // HashTable is movable
-  HashTable(HashTable&& aRhs) : AllocPolicy(std::move(aRhs)) { moveFrom(aRhs); }
+  HashTable(HashTable&& aRhs) : AllocPolicy(std::move(aRhs)) {
+    moveFrom(aRhs);
+  }
   void operator=(HashTable&& aRhs) {
     MOZ_ASSERT(this != &aRhs, "self-move assignment is prohibited");
     if (mTable) {

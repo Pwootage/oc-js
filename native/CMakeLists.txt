@@ -63,7 +63,7 @@ endif ()
 if (WIN32)
 
 elseif (APPLE)
-  set_target_properties(mozjs PROPERTIES IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/libmozjs-70a1.dylib)
+  set_target_properties(mozjs PROPERTIES IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/libmozjs-69.dylib)
   #  set_target_properties(mozglue PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/spidermonkey/macos.x64/libmozglue.dylib)
   add_custom_command(TARGET ocjs
     POST_BUILD COMMAND

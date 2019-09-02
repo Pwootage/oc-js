@@ -33,6 +33,7 @@ double	log(double);
 double	log10(double);
 
 double	pow(double, double);
+double	sqrt(double);
 double	fabs(double);
 
 double	floor(double);

@@ -121,6 +121,7 @@ class JS_PUBLIC_API TransitiveCompileOptions {
   bool sourceIsLazy = false;
   bool allowHTMLComments = true;
   bool hideScriptFromDebugger = false;
+  bool bigIntEnabledOption = false;
   bool fieldsEnabledOption = true;
 
   /**
@@ -132,9 +133,6 @@ class JS_PUBLIC_API TransitiveCompileOptions {
   unsigned introductionLineno = 0;
   uint32_t introductionOffset = 0;
   bool hasIntroductionInfo = false;
-
-  // Mask of operation kinds which should be instrumented.
-  uint32_t instrumentationKinds = 0;
 
  protected:
   TransitiveCompileOptions() = default;
