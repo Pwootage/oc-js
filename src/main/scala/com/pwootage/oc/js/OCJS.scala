@@ -6,6 +6,7 @@ import java.util.concurrent.Callable
 import java.util.{Timer, TimerTask}
 
 import com.google.common.io.ByteStreams
+import com.pwootage.oc.js.spidermonkey.{SpiderMonkeyArchitecture, SpiderMonkeyStatic}
 import com.pwootage.oc.js.v8.{V8Architecture, V8Static}
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
@@ -43,13 +44,23 @@ object OCJS {
     log.info("Loading duktape natives")
     //TODO: make this work in not, well, dev
     //        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
-    System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
+    try {
+//      System.load(Paths.get("../native/cmake-build-debug/libmozglue.dylib").toAbsolutePath.normalize().toString)
+//      System.load(Paths.get("../native/cmake-build-debug/libmozjs-70a1.dylib").toAbsolutePath.normalize().toString)
+      System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
+    } catch {
+      case e: Throwable =>
+        e.printStackTrace()
+        throw e;
+    }
     V8Static.initialize()
+//    SpiderMonkeyStatic.initialize()
     log.info("Loaded duktape natives")
 
     //    Machine.add(classOf[NashornArchitecture])
     //    Machine.add(classOf[DuktapeArchitecture])
     Machine.add(classOf[V8Architecture])
+    Machine.add(classOf[SpiderMonkeyArchitecture])
 
     val is = classOf[V8Architecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
     Items.registerEEPROM("EEPROM (jsboot)", ByteStreams.toByteArray(is), null, true)
@@ -65,7 +76,7 @@ object OCJS {
         log.info(pid)
       }
     }
-    //    t.scheduleAtFixedRate(task, 2000, 2000)
+        t.scheduleAtFixedRate(task, 2000, 2000)
   }
 
   @EventHandler

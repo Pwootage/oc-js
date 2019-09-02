@@ -18,7 +18,7 @@ declare var __yield: __yieldFunction;
 declare var __compile: __compileFunction;
 
 function biosYield<T>(call: BiosYield): T {
-  const biosResJson = __yield(call);
+  const biosResJson = __yield(JSON.stringify(call));
   const result: BiosYieldResult = JSON.parse(biosResJson);
   if (!result) {
     return result;

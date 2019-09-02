@@ -25,6 +25,7 @@ src/main/resources/assets/oc-js/os
 native/cmake-build-debug
 native/gen/
 native/v8/
+native/spidermonkey/
 
 # sim stuff
 os.js/simulator/root

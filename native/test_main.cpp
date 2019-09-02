@@ -5,63 +5,116 @@
 using namespace v8;
 using namespace std;
 
-void runSomeJS();
+#include <jsapi.h>
+#include <js/Initialization.h>
+#include <js/Conversions.h>
+#include <js/JSON.h>
+#include <js/CompilationAndEvaluation.h>
+#include <js/SourceText.h>
 
-int main(int argc, char* argv[]) {
-    V8::InitializeICUDefaultLocation("/home/pwootage/projects/oc-js/src/main/resources/assets/oc-js/v8/");
-    V8::InitializeExternalStartupData("/home/pwootage/projects/oc-js/src/main/resources/assets/oc-js/v8/");
-    Platform* platform = platform::CreateDefaultPlatform();
-    V8::InitializePlatform(platform);
-    V8::Initialize();
-    int num_threads = 1000;
-    std::thread t[num_threads];
-    for (int i = 0; i < num_threads; i++) {
-        t[i] = thread(runSomeJS);
-    }
-    for (int i = 0; i < num_threads; i++) {
-        t[i].join();
-    }
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-    V8::Dispose();
-    V8::ShutdownPlatform();
-    delete platform;
+using namespace JS;
 
-    return 0;
+// global class ops
+static JSClassOps global_ops = {
+  nullptr, //addProperty
+  nullptr, //delProperty
+  nullptr, //enumerate
+  nullptr, //newEnumerate
+  nullptr, //resolve
+  nullptr, //mayResolve
+  nullptr, //finalize
+  nullptr, //call
+  nullptr, //hasInstance
+  nullptr, //construct
+  JS_GlobalObjectTraceHook
+};
+
+/* The class of the global object. */
+static JSClass global_class = {
+  "global",
+  JSCLASS_GLOBAL_FLAGS,
+  &global_ops
+};
+
+void reportError(JSContext *cx, const char *message, JSErrorReport *report) {
+  fprintf(stderr, "%s:%u:%s\n",
+          report->filename ? report->filename : "[no filename]",
+          (unsigned int) report->lineno,
+          message);
 }
 
-void runSomeJS() {
-    Isolate::CreateParams create_params;
-    create_params.array_buffer_allocator =
-            v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-    Isolate* isolate = Isolate::New(create_params);
-    {
-        isolate->Enter();
-        Isolate::Scope isolate_scope(isolate);
-        // Create a stack-allocated handle scope.
-        HandleScope handle_scope(isolate);
-        // Create a new context.
-        Local<Context> context = Context::New(isolate);
-        // Enter the context for compiling and running the hello world script.
-        Context::Scope context_scope(context);
-        // Create a string containing the JavaScript source code.
-        Local<String> source =
-                String::NewFromUtf8(isolate, "function fib(i){"
-                                            "return i <= 1 ? 1 : fib(i -1) + fib(i-2);"
-                                            "} "
-                                            "[1,2,3,4,5,12,36].map(fib).join(',');",
-                                    NewStringType::kNormal).ToLocalChecked();
-        // Compile the source code.
-        Local<Script> script = Script::Compile(context, source).ToLocalChecked();
-        // Run the script to get the result.
-        Local<Value> result = script->Run(context).ToLocalChecked();
-        // Convert the result to an UTF8 string and print it.
-        String::Utf8Value utf8(result);
-        printf("%s\n", *utf8);
-        isolate->Exit();
+u16string getU16String(JSContext *ctx, const JS::HandleValue &handle) {
+  JS::RootedString str(ctx, JS::ToString(ctx, handle));
+  if (!str) return u"";// TODO: throw error?
+  size_t len = JS_GetStringLength(str);
+  if (len > 1024*1024) return u"";// TODO: throw error
+
+  u16string res;
+  res.resize(len);
+  JS_CopyStringChars(ctx, mozilla::Range<char16_t>(res.data(), res.length()), str);
+  return res;
+}
+
+bool __yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
+  // Grab the engine
+//  auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
+  JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+
+  // pull out args
+  u16string json = getU16String(ctx, args[0]);
+
+  // yield
+  u16string res = json;
+
+  // Return
+  args.rval().setString(JS_NewUCStringCopyN(ctx, res.c_str(), res.length()));
+  return true;
+}
+
+int main(int argc, const char *argv[])
+{
+  JS_Init();
+
+  JSContext *ctx = JS_NewContext(8L * 1024 * 1024);
+  if (!ctx) return 1;
+  if (!InitSelfHostedCode(ctx)) return 2;
+
+  {
+    RealmOptions options;
+    RootedObject global(ctx, JS_NewGlobalObject(ctx, &global_class, nullptr, FireOnNewGlobalHook, options));
+    if (!global) return 3;
+
+
+    RootedValue rval(ctx);
+
+    { // Scope for JSAutoRealm
+      JSAutoRealm ar(ctx, global);
+      if (!InitRealmStandardClasses(ctx)) return 4;
+      if (!JS_DefineFunction(ctx, global, "__yield", __yield, 1, 0)) return 7;
+
+
+      const char16_t *script = u"'hello '+' world, it is '+new Date()+':'+ __yield('asdf')";
+      const size_t script_len = char_traits<char16_t>::length(script);
+
+
+      const char *filename = "noname";
+      int lineno = 1;
+      CompileOptions opts(ctx);
+      opts.setFileAndLine(filename, lineno);
+      SourceText<char16_t> srcBuf;
+      if (!srcBuf.init(ctx, script, script_len, SourceOwnership::Borrowed)) return 5;
+      if (!Evaluate(ctx, opts, srcBuf, &rval)) return 6;
     }
-    // Dispose the isolate and tear down V8.
-    isolate->Dispose();
-    delete create_params.array_buffer_allocator;
+
+    RootedString str(ctx, rval.toString());
+    UniqueChars strChars = JS_EncodeStringToUTF8(ctx, str);
+    printf("%s\n", strChars.get());
+    fflush(stdout);
+  }
+
+  JS_DestroyContext(ctx);
+  JS_ShutDown();
+  return 0;
 }
 

@@ -39,7 +39,6 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
 
   private var mainEngine: JSEngine = null
   val componentInvoker = new ComponentInvoker
-
   var biosInternalAPI: JSBiosInternalAPI = null
   var componentAPI: JSComponentApi = null
   var computerAPI: JSComputerApi = null

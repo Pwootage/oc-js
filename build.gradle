@@ -3,7 +3,7 @@ buildscript {
     jcenter()
     maven {
       name = "forge"
-      url = "http://files.minecraftforge.net/maven"
+      url = "https://files.minecraftforge.net/maven"
     }
   }
   dependencies {
@@ -18,14 +18,17 @@ version = "1.0"
 group = "com.pwootage.oc.js"
 archivesBaseName = "oc-js"
 
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
+
 minecraft {
-  version = "1.12.2-14.23.2.2616"
+  version = "1.12.2-14.23.5.2768"
   runDir = "run"
 
   // the mappings can be changed at any time, and must be in the following format.
   // snapshot_YYYYMMDD   snapshot are built nightly.
   // stable_#            stables are built at the discretion of the MCP team.
-  mappings = "snapshot_20180213"
+  mappings = "snapshot_20180704"
   // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 
   replaceIn "com/pwootage/oc/js/OCJS.scala"
@@ -33,12 +36,15 @@ minecraft {
 }
 
 repositories {
-  maven { url "http://maven.cil.li/" }
+  jcenter()
+  maven { url "https://maven.cil.li/" }
+//  maven { url "http://maven.shadowfacts.net/" }
 }
 
 dependencies {
-  compile "li.cil.oc:OpenComputers:MC1.12.2-1.7.+:api"
-  compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
+//  implementation group: "net.shadowfacts", name: "Forgelin", version: "LATEST_VERSION"
+//  implementation 'org.scala-lang:scala-library:2.11.11'
+  implementation "li.cil.oc:OpenComputers:MC1.12.2-1.7.+:api"
 }
 
 processResources {
