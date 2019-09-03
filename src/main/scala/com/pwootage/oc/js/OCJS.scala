@@ -6,6 +6,7 @@ import java.util.concurrent.Callable
 import java.util.{Timer, TimerTask}
 
 import com.google.common.io.ByteStreams
+import com.pwootage.oc.js.duktape.{DuktapeArchitecture, DuktapeStatic}
 import com.pwootage.oc.js.spidermonkey.{SpiderMonkeyArchitecture, SpiderMonkeyStatic}
 import li.cil.oc.api._
 import net.minecraft.item.EnumDyeColor
@@ -44,8 +45,8 @@ object OCJS {
     //TODO: make this work in not, well, dev
     //        System.load(Paths.get("../native/cmake-build-debug/libocjs.so").toAbsolutePath.normalize().toString)
     try {
-//      System.load(Paths.get("../native/cmake-build-debug/libmozglue.dylib").toAbsolutePath.normalize().toString)
-//      System.load(Paths.get("../native/cmake-build-debug/libmozjs-70a1.dylib").toAbsolutePath.normalize().toString)
+      //      System.load(Paths.get("../native/cmake-build-debug/libmozglue.dylib").toAbsolutePath.normalize().toString)
+      //      System.load(Paths.get("../native/cmake-build-debug/libmozjs-70a1.dylib").toAbsolutePath.normalize().toString)
       System.load(Paths.get("../native/cmake-build-debug/libocjs.dylib").toAbsolutePath.normalize().toString)
     } catch {
       case e: Throwable =>
@@ -53,9 +54,10 @@ object OCJS {
         throw e;
     }
     SpiderMonkeyStatic.initialize()
+    DuktapeStatic.initialize()
     log.info("Loaded ocjs natives")
 
-    //    Machine.add(classOf[DuktapeArchitecture])
+    Machine.add(classOf[DuktapeArchitecture])
     Machine.add(classOf[SpiderMonkeyArchitecture])
 
     val is = classOf[SpiderMonkeyArchitecture].getResourceAsStream("/assets/oc-js/bios/bootloader.js")
@@ -72,7 +74,7 @@ object OCJS {
         log.info(pid)
       }
     }
-//        t.scheduleAtFixedRate(task, 2000, 2000)
+    //        t.scheduleAtFixedRate(task, 2000, 2000)
   }
 
   @EventHandler

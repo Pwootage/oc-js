@@ -5,14 +5,6 @@ import {
   BiosYield, __yieldFunction, __compileFunction
 } from './biosDefinitions';
 
-// Set up global ref
-Object.defineProperty(global, 'global', {
-  enumerable: false,
-  value: global,
-  writable: false,
-  configurable: false
-});
-
 //Private interfaces
 declare var __yield: __yieldFunction;
 declare var __compile: __compileFunction;
@@ -316,7 +308,7 @@ if (!eeprom) {
         context += lines[line + 1];
       }
 
-      $bios.crash(`Failed to compile eeprom: ${error.filename}:${error.lineNumber}:${error.columnNumber} ${error.name}/${error.message}:\n${context}`);
+      $bios.crash(`Failed to compile eeprom: ${error.filename}:${error.lineNumber}:${error.columnNumber} ${error.name}/${error.message}:\n${context}\n${error}`);
     } else {
       $bios.crash(`Failed to compile eeprom: unknown error`);
     }

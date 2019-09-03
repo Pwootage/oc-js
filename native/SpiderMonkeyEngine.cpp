@@ -48,7 +48,7 @@ Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1next(JNIEnv *env
 
 //    SpiderMonkeyEngineNative::debug_print(u"Recieved next: " + nextVal);
     future<u16string> resFuture = engine->next(nextVal);
-    auto status = resFuture.wait_for(chrono::seconds(100));
+    auto status = resFuture.wait_for(chrono::seconds(1));
     if (status == future_status::ready) {
       u16string res = resFuture.get();
 //      SpiderMonkeyEngineNative::debug_print(u"Recieved next result: " + res);

@@ -58,9 +58,7 @@ class SpiderMonkeyEngine(arch: SpiderMonkeyArchitecture) extends JSEngine {
         JSValue.fromJSON(nativeRes)
       } catch {
         case e: Throwable =>
-          println("Bad native res: " + nativeRes)
-          e.printStackTrace()
-          throw e
+          throw new RuntimeException("Bad native result" + nativeRes)
       }
       jsYield.property("type").asString match {
         case Some("__bios__") =>

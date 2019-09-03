@@ -17,9 +17,13 @@ include(UseJava)
 set(CLASSES_DIR ../build/classes/scala/main/)
 set(GEN_DIR "gen/")
 set(NATIVE_JAVA_CLASSES
+  com.pwootage.oc.js.duktape.DuktapeEngine
+  com.pwootage.oc.js.duktape.DuktapeStatic
   com.pwootage.oc.js.spidermonkey.SpiderMonkeyEngine
   com.pwootage.oc.js.spidermonkey.SpiderMonkeyStatic)
 set(JNI_GEN_HEADERS
+  gen/com_pwootage_oc_js_duktape_DuktapeEngine.h
+  gen/com_pwootage_oc_js_duktape_DuktapeStatic.h
   gen/com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine.h
   gen/com_pwootage_oc_js_spidermonkey_SpiderMonkeyStatic.h)
 
@@ -40,10 +44,13 @@ set(SOURCE_FILES
   ${JNI_GEN_HEADERS}
   duk_config.h
   duktape.h
-  #        duktape.c
+  duktape.c
   SpiderMonkeyEngine.cpp
   SpiderMonkeyEngineNative.cpp
-  SpiderMonkeyEngineNative.h)
+  SpiderMonkeyEngineNative.h
+  DuktapeEngine.cpp
+  DuktapeEngineNative.cpp
+  DuktapeEngineNative.h)
 
 # imported libs
 add_library(mozjs SHARED IMPORTED)
