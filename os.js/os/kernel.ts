@@ -6,7 +6,7 @@
   while (read = $bios.bootFS.read(handle, 1024)) src += read;
   $bios.bootFS.close(handle);
   $bios.compile('require.js', `(function(exports, global, define) {${src}
-  /**/})({}, global, (deps, fn) => fn(null, {}))`);
+  /**/})({},global,function(deps,fn){return fn(null,{})})`)();
   // Load OS
   require('os');
 })();

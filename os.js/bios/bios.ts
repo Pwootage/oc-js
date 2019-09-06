@@ -5,6 +5,15 @@ import {
   BiosYield, __yieldFunction, __compileFunction
 } from './biosDefinitions';
 
+if (!global.hasOwnProperty('global')) {
+  Object.defineProperty(global, 'global', {
+    enumerable: false,
+    value: global,
+    writable: false,
+    configurable: false
+  });
+}
+
 //Private interfaces
 declare var __yield: __yieldFunction;
 declare var __compile: __compileFunction;
@@ -245,9 +254,38 @@ class BiosApiImpl implements BiosApi {
     });
   }
 
-  compile(filename: string, script: string): CompileResult {
+  compile(filename: string, script: string): () => void {
     // $bios.log(`Compiling ${filename}/${JSON.stringify(script)}`);
-    return __compile(filename, script);
+    try {
+      return __compile(filename, script);
+    } catch (error) {
+      if (error) {
+        let line = 0, col = 0;
+
+        if (error.lineNumber) {
+          line = error.lineNumber - 1;
+        }
+        if (error.columnNumber) {
+          col = error.columnNumber - 1;
+        }
+
+        const lines = script.split('\n');
+        $bios.log(`Lines: ${lines.length}, line: ${line}`);
+
+        let context = '';
+        if (line - 1 >= 0) {
+          context += lines[line - 1] + '\n';
+        }
+        context += lines[line] + '\n';
+        context += ' '.repeat(Math.max(col - 1, 0)) + '^' + '\n';
+        if (line + 1 < lines.length) {
+          context += lines[line + 1];
+        }
+
+        error.prettyMessage = `${error.filename}:${error.lineNumber}:${error.columnNumber} ${error.name}/${error.message}:\n${context}\n${error}`;
+      }
+      throw error;
+    }
   }
 
   log(message: string) {
@@ -289,28 +327,9 @@ if (!eeprom) {
     // for (i = 0; i < 100; i++) {
     //   $bios.computer.sleep(1);
     // }
-
-    $bios.compile('eeprom', actaullyCompiledSrc);
+    $bios.compile('eeprom', actaullyCompiledSrc)();
     throw new Error('EEPROM ended execution');
   } catch (error) {
-    if (error) {
-      const line = error.lineNumber - 1;
-      const col = error.columnNumber - 1;
-      const lines = actaullyCompiledSrc.split('\n');
-
-      let context = '';
-      if (line - 1 >= 0) {
-        context += lines[line - 1] + '\n';
-      }
-      context += lines[line] + '\n';
-      context += ' '.repeat(col - 1) + '^' + '\n';
-      if (line + 1 < lines.length) {
-        context += lines[line + 1];
-      }
-
-      $bios.crash(`Failed to compile eeprom: ${error.filename}:${error.lineNumber}:${error.columnNumber} ${error.name}/${error.message}:\n${context}\n${error}`);
-    } else {
-      $bios.crash(`Failed to compile eeprom: unknown error`);
-    }
+    $bios.crash(`Failed to compile/run eeprom: ${error.prettyMessage || error.message} ${error.stack}`);
   }
 }

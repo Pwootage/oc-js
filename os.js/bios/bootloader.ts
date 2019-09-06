@@ -34,6 +34,6 @@ import {EEPROMComponentAPI, FilesystemComponentAPI} from '../os/usr/lib/external
   let read: string;
   while (read = fs.read(handle, 1024)) kernel += read;
   fs.close(handle);
-  $bios.compile('kernel.js', kernel);
+  $bios.compile('kernel.js', kernel)();
   $bios.crash('Kernel ended execution');
 })();

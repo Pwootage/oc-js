@@ -22,7 +22,7 @@ declare global {
     signals: EventEmitter
 
     /** Compiles the script passed as a string */
-    compile(filename: string, script: string): any;
+    compile(filename: string, script: string): () => void;
     /** Does not return. Crashes the machine! */
     crash(msg: string): void;
     log(msg: string): void;

@@ -136,10 +136,10 @@ void SpiderMonkeyEngineNative::mainThreadFn() {
 
 //    printf("Debug JSGC_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_BYTES));
   printf("Debug JSGC_MAX_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_MAX_BYTES));
-  JS_SetGCParameter(this->context, JSGC_MAX_BYTES, 32*1024*1024);
+  JS_SetGCParameter(this->context, JSGC_MAX_BYTES, 32 * 1024 * 1024);
 //  JS_SetGCParameter(this->context, JSGC_MAX_MALLOC_BYTES, 32*1024*1024);
   JS_SetNativeStackQuota(this->context, 256 * 1024);
-  JS_SetGCParametersBasedOnAvailableMemory(this->context, 32*1024*1024);
+  JS_SetGCParametersBasedOnAvailableMemory(this->context, 32 * 1024 * 1024);
 
   printf("Debug JSGC_MAX_BYTES: %d\n", JS_GetGCParameter(this->context, JSGC_MAX_BYTES));
 
@@ -383,7 +383,21 @@ bool SpiderMonkeyEngineNative::__compile(JSContext *ctx, unsigned argc, JS::Valu
     return false;
   }
   JS::RootedObjectVector emptyScopeChain(ctx);
-  return JS::Evaluate(ctx, compileOpts, srcBuff, args.rval());
+  JS::RootedFunction func(ctx, JS::CompileFunction(
+    ctx,
+    emptyScopeChain,
+    compileOpts,
+    "__compile",
+    0,
+    nullptr,
+    srcBuff
+  ));
+
+  if (!func) {
+    return false;
+  }
+  args.rval().setObjectOrNull(JS_GetFunctionObject(func));
+  return true;
 }
 
 bool SpiderMonkeyEngineNative::interruptCallback(JSContext *ctx) {

@@ -91,7 +91,7 @@ import {FileSystem} from "../lib/fs";
       });
       return $bios.compile(filePath,
         `(function(global, exports, $bios, require, module){${src}
-        /**/if(module.exports) exports=module.exports; global.exports = exports;})(global, global.exports, global.$bios, global.require, ${modJson});`);
+        /**/if(module.exports) exports=module.exports; global.exports = exports;})(global, global.exports, global.$bios, global.require, ${modJson});`)();
     }
   }
   global.__requireImpl = new RequireImpl();

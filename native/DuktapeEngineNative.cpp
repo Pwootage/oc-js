@@ -184,6 +184,7 @@ duk_ret_t DukTapeEngineNative::__yield(duk_context *ctx) {
 
   // pull out args
   string json(duk_require_string(ctx, 0));
+  duk_pop(ctx);
 
   // yield
   string res = native->yield(json);
@@ -198,13 +199,12 @@ duk_ret_t DukTapeEngineNative::__compile(duk_context *ctx) {
   // pull out args
   string filenameVal(duk_require_string(ctx, 0));
   string srcVal(duk_require_string(ctx, 1));
+  duk_pop(ctx);
+  duk_pop(ctx);
 
   duk_push_string(ctx, srcVal.c_str());
   duk_push_string(ctx, filenameVal.c_str());
   if (duk_pcompile(ctx, 0) != 0) {
-    return duk_throw(ctx);
-  }
-  if (duk_pcall(ctx, 0) != 0) {
     return duk_throw(ctx);
   }
 
