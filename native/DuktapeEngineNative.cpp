@@ -85,6 +85,8 @@ void DukTapeEngineNative::mainThreadFn() {
     duk_push_string(this->context, "global");
     duk_push_global_object(this->context);
     duk_def_prop(this->context, -3, DUK_DEFPROP_HAVE_VALUE);
+
+    duk_del_prop_literal(this->context, -1, "Duktape");
   }
   duk_pop(this->context);
 

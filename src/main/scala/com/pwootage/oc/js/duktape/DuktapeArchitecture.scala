@@ -13,8 +13,4 @@ class DuktapeArchitecture(_machine: Machine) extends JSArchitectureBase(_machine
   override def createEngine(): JSEngine = {
     new DuktapeEngine(this)
   }
-
-  override def setupSandbox(): Unit = {
-    //TODO
-  }
 }

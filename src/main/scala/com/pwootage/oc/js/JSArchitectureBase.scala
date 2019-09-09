@@ -50,11 +50,6 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
     */
   def createEngine(): JSEngine
 
-  /**
-    * Do any sandbox setup here
-    */
-  def setupSandbox(): Unit
-
   //Architecture methods
 
   override def isInitialized: Boolean = _initialized
@@ -77,7 +72,6 @@ abstract class JSArchitectureBase(val machine: Machine) extends Architecture {
       }
 
       mainEngine = createEngine()
-      setupSandbox()
 
       //Bios to be loaded by impl
       //Set up api wrappers

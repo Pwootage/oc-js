@@ -13,8 +13,4 @@ class SpiderMonkeyArchitecture(_machine: Machine) extends JSArchitectureBase(_ma
   override def createEngine(): JSEngine = {
     new SpiderMonkeyEngine(this)
   }
-
-  override def setupSandbox(): Unit = {
-    //TODO
-  }
 }
