@@ -14,18 +14,18 @@
     "package:linux": "electron-packager . --overwrite --platform=linux --arch=x64 --out=out"
   },
   "dependencies": {
-    "@types/fs-extra": "^5.0.2",
-    "@types/node": "^10.1.2",
+    "@types/fs-extra": "^8.0.0",
+    "@types/node": "^12.7.4",
     "@types/sleep": "^0.0.7",
-    "@types/uuid": "^3.4.3",
-    "electron": "^2.0.2",
-    "electron-packager": "^12.1.0",
-    "electron-rebuild": "^1.7.3",
-    "fs-extra": "^6.0.1",
-    "sleep": "^5.1.1",
-    "source-map-support": "^0.5.6",
-    "ts-node": "^6.0.3",
-    "typescript": "^2.8.3",
-    "uuid": "^3.2.1"
+    "@types/uuid": "^3.4.5",
+    "electron": "^6.0.8",
+    "electron-packager": "^14.0.6",
+    "electron-rebuild": "^1.8.6",
+    "fs-extra": "^8.1.0",
+    "sleep": "^6.1.0",
+    "source-map-support": "^0.5.13",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.6.2",
+    "uuid": "^3.3.3"
   }
 }

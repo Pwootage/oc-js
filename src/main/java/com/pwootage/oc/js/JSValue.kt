@@ -1,7 +1,6 @@
 package com.pwootage.oc.js
 
 import com.google.gson.*
-import java.nio.charset.StandardCharsets
 
 /**
  * Created by pwootage on 5/14/17.
@@ -81,10 +80,7 @@ sealed class JSValue {
           }
           JSMap(res)
         }
-        is ByteArray -> {
-          //TODO: arraybuffers?
-          JSStringValue(String(obj, StandardCharsets.UTF_8))
-        }
+        is ByteArray -> JSByteArray(obj)
         is Array<*> -> JSArray(obj.map(::fromJava).toTypedArray())
         is ArrayList<*> -> JSArray(obj.map(::fromJava).toTypedArray())
         null -> JSNull
@@ -102,16 +98,12 @@ data class JSStringValue(val value: String) : JSValue() {
 
   override val asSimpleJava: String = value
 
-  override fun toJSON(): String = JSValue.gson.toJson(value)
+  override fun toJSON(): String = gson.toJson(value)
 }
 
 data class JSDoubleValue(val value: Double) : JSValue() {
 
   override val asDouble = value
-
-  val asLong = value.toLong()
-
-  val asInt = value.toInt()
 
   override val asSimpleJava = value
 
@@ -155,12 +147,20 @@ data class JSMap(val value: Map<String, JSValue>) : JSValue() {
     }
 
   override fun toJSON() = "{" +
-    value.map { JSValue.gson.toJson(it.key) + ":" + it.value.toJSON() }.joinToString(",") +
+    value.map { gson.toJson(it.key) + ":" + it.value.toJSON() }.joinToString(",") +
     "}"
+}
+
+data class JSByteArray(val value: ByteArray) : JSValue() {
+  override val asSimpleJava = value
+
+  override fun toJSON(): String {
+    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+  }
 }
 
 object JSNull : JSValue() {
   override fun toJSON() = "null"
 
-  override val asSimpleJava = null
+  override val asSimpleJava: Nothing? = null
 }
