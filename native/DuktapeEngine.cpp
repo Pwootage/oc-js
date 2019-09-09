@@ -6,40 +6,45 @@
 
 using namespace std;
 
+void InitializeDuktape(JNIEnv *env, jclass clazz);
+DukTapeEngineNative *getDuktapeFromJava(JNIEnv *env, jobject obj);
+void setDuktapeToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data);
+
+jfieldID DukTapeEngineNativeFID = nullptr;
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_duktape_DuktapeStatic_native_1init(JNIEnv *env, jclass clazz) {
-  DukTapeEngineNative::Initialize(env, clazz);
+  InitializeDuktape(env, clazz);
 }
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1start(JNIEnv *env, jobject self) {
-  DukTapeEngineNative *engine = DukTapeEngineNative::getFromJava(env, self);
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
   if (engine == nullptr) {
     printf("Native start\n");
     fflush(stdout);
 
-    engine = new DukTapeEngineNative(env, self);
-    DukTapeEngineNative::setToJava(env, self, engine);
+    engine = new DukTapeEngineNative();
+    setDuktapeToJava(env, self, engine);
   }
 }
 
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1destroy(JNIEnv *env, jobject self) {
-  DukTapeEngineNative *engine = DukTapeEngineNative::getFromJava(env, self);
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
   if (engine != nullptr) {
     printf("Native destroy\n");
     fflush(stdout);
 
     delete engine;
-    DukTapeEngineNative::setToJava(env, self, nullptr);
+    setDuktapeToJava(env, self, nullptr);
   }
 }
 
 JNIEXPORT jstring JNICALL
 Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject self, jstring next) {
-  DukTapeEngineNative *engine = DukTapeEngineNative::getFromJava(env, self);
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
   if (engine != nullptr) {
     const char *utfChars = env->GetStringUTFChars(next, nullptr);
     string nextVal(utfChars);
@@ -58,4 +63,18 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject 
   } else {
     return env->NewStringUTF(R"({"type":"no_engine"})");
   }
+}
+
+
+void InitializeDuktape(JNIEnv *env, jclass clazz) {
+  jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
+  DukTapeEngineNativeFID = env->GetFieldID(v8EngineClass, "duktapeEngineNative", "J");
+}
+
+DukTapeEngineNative *getDuktapeFromJava(JNIEnv *env, jobject obj) {
+  return reinterpret_cast<DukTapeEngineNative *>(env->GetLongField(obj, DukTapeEngineNativeFID));
+}
+
+void setDuktapeToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data) {
+  env->SetLongField(obj, DukTapeEngineNativeFID, reinterpret_cast<jlong>(data));
 }

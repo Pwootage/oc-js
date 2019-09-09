@@ -37,14 +37,12 @@ add_custom_command(
 )
 
 # Includes
-include_directories(${JNI_INCLUDE_DIRS} ${GEN_DIR} include)
+include_directories(SYSTEM ${JNI_INCLUDE_DIRS} ${GEN_DIR} include)
 
 # Source
 set(SOURCE_FILES
   ${JNI_GEN_HEADERS}
-  duk_config.h
-  duktape.h
-  duktape.c
+  duktape.cpp
   SpiderMonkeyEngine.cpp
   SpiderMonkeyEngineNative.cpp
   SpiderMonkeyEngineNative.h

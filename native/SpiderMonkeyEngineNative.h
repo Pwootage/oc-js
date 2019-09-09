@@ -22,14 +22,8 @@
  * */
 class SpiderMonkeyEngineNative {
 public:
-  using JNIPtr = std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>>;
-
-  SpiderMonkeyEngineNative(JNIEnv *env, jobject obj);
+  SpiderMonkeyEngineNative();
   ~SpiderMonkeyEngineNative();
-
-  static void Initialize(JNIEnv *env, jclass clazz);
-  static SpiderMonkeyEngineNative *getFromJava(JNIEnv *env, jobject obj);
-  static void setToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data);
 
   std::thread mainThread;
 
@@ -39,12 +33,6 @@ public:
 
   static void debug_print(const std::u16string& str);
 private:
-  // JVM Stuff
-  JavaVM *javaVM{nullptr};
-  jobject globalObjRef;
-
-  JNIPtr getEnv();
-
   // JS context stuff
   JSContext *context;
   JS::RootedObject *globalObject;

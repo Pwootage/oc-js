@@ -4,31 +4,16 @@
 #include "DuktapeEngineNative.h"
 
 #include <cstdio>
-#include <iostream>
 #include <thread>
 #include <functional>
 
 using namespace std;
 
-jfieldID DukTapeEngineNativeFID = nullptr;
-
-void DukTapeEngineNative::Initialize(JNIEnv *env, jclass clazz) {
-  jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
-  DukTapeEngineNativeFID = env->GetFieldID(v8EngineClass, "duktapeEngineNative", "J");
+duk_bool_t duk_exec_timeout(void *udata) {
+  return static_cast<DukTapeEngineNative*>(udata)->shouldKill;
 }
 
-DukTapeEngineNative *DukTapeEngineNative::getFromJava(JNIEnv *env, jobject obj) {
-  return reinterpret_cast<DukTapeEngineNative *>(env->GetLongField(obj, DukTapeEngineNativeFID));
-}
-
-void DukTapeEngineNative::setToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data) {
-  env->SetLongField(obj, DukTapeEngineNativeFID, reinterpret_cast<jlong>(data));
-}
-
-DukTapeEngineNative::DukTapeEngineNative(JNIEnv *env, jobject obj) {
-  env->GetJavaVM(&javaVM);
-  globalObjRef = env->NewGlobalRef(obj);
-
+DukTapeEngineNative::DukTapeEngineNative() {
   this->mainThread = new thread([this] { this->mainThreadFn(); });
 }
 
@@ -38,7 +23,7 @@ DukTapeEngineNative::~DukTapeEngineNative() {
   shouldKill = true;
   if (!isDead) {
     debug_print("JS main thread is not dead");
-    this->next(R"({"state": "error", "value": "kill"})");
+    //this->next(R"({"state": "error", "value": "kill"})");
     pthread_cancel(this->mainThread->native_handle());
   }
   debug_print("JS waiting for main thread");
@@ -49,27 +34,6 @@ DukTapeEngineNative::~DukTapeEngineNative() {
   duk_destroy_heap(this->context);
   this->context = nullptr;
   debug_print("JS main thread kill complete");
-}
-
-DukTapeEngineNative::JNIPtr DukTapeEngineNative::getEnv() {
-  bool detach = false;
-  JNIEnv *env = nullptr;
-  // double check it's all ok
-  int getEnvStat = javaVM->GetEnv((void **) &env, JNI_VERSION_1_6);
-  if (getEnvStat == JNI_EDETACHED) {
-    detach = true;
-    if (javaVM->AttachCurrentThread((void **) &env, NULL) != 0) {
-      cout << "Failed to attach" << endl;
-    }
-  } else if (getEnvStat == JNI_OK) {
-    detach = false;
-  }
-
-  return JNIPtr(env, [this](JNIEnv *ptr) {
-//      if (detach) {
-    this->javaVM->DetachCurrentThread();
-//      }
-  });
 }
 
 future<string> DukTapeEngineNative::next(string next) {
@@ -98,9 +62,8 @@ void DukTapeEngineNative::mainThreadFn() {
   debug_print("JS main thread start");
 
   //init
-  // TODO: memory management
-  this->context = duk_create_heap_default();
-  if (this->context) {
+  this->context = duk_create_heap(engine_alloc, engine_realloc, engine_free, this, engine_fatal);
+  if (!this->context) {
     //TODO: Throw java exception
   }
 
@@ -156,14 +119,11 @@ string DukTapeEngineNative::yield(const string &output) {
   return *this->nextInput;
 }
 
-string DukTapeEngineNative::compileAndExecute(string src, string filename) {
-  auto env = getEnv();
-
-
+string DukTapeEngineNative::compileAndExecute(const string& src, const string &filename) {
   duk_push_string(this->context, src.c_str());
   duk_push_string(this->context, filename.c_str());
   if (duk_pcompile(this->context, 0) != 0) {
-    return "compile failed: " + string(duk_safe_to_string(this->context, -1));;
+    return "compile failed: " + string(duk_safe_to_string(this->context, -1));
   }
   if (duk_pcall(this->context, 0) != 0) {
     return "pcall failed: " + string(duk_safe_to_string(this->context, -1));
@@ -214,4 +174,123 @@ duk_ret_t DukTapeEngineNative::__compile(duk_context *ctx) {
 void DukTapeEngineNative::debug_print(const std::string &str) {
   printf("%s\n", str.c_str());
   fflush(stdout);
+}
+
+struct alloc_struct {
+  uint32_t canary;
+  size_t size;
+};
+
+constexpr uint32_t CANARY_VAL = 0xAABADDAD;
+
+void *DukTapeEngineNative::engine_alloc(void *usrData, size_t size) {
+  auto *native = static_cast<DukTapeEngineNative *>(usrData);
+
+  size += sizeof(alloc_struct);
+
+  if (native->allocatedMemory + size > native->maxMemory) {
+    return nullptr;
+  }
+
+  native->allocatedMemory += size;
+  alloc_struct *alloc = static_cast<alloc_struct *>(malloc(size));
+  alloc->canary = CANARY_VAL;
+  alloc->size = size;
+  // Points at the end of the struct
+  return alloc + 1;
+}
+
+void *DukTapeEngineNative::engine_realloc(void *usrData, void *ptr, size_t size) {
+  auto *native = static_cast<DukTapeEngineNative *>(usrData);
+
+  if (ptr == nullptr) {
+    return engine_alloc(usrData, size);
+  }
+
+  auto *alloc = static_cast<alloc_struct *>(ptr) - 1;
+
+  if (alloc->canary != CANARY_VAL) {
+    debug_print("BAD REALLOC, WAS NOT ALLOCATED BY US");
+    return nullptr;
+  }
+
+  size += sizeof(alloc_struct);
+
+  if (size > alloc->size) {
+    size_t diff = size - alloc->size;
+    if (native->allocatedMemory + diff > native->maxMemory) {
+      return nullptr;
+    }
+    native->allocatedMemory += diff;
+  } else {
+    size_t diff = alloc->size - size;
+    native->allocatedMemory -= diff;
+  }
+
+  alloc = static_cast<alloc_struct *>(realloc(alloc, size));
+  alloc->size = size;
+  // Points at the end of the struct
+  return alloc + 1;
+}
+
+void DukTapeEngineNative::engine_free(void *usrData, void *ptr) {
+  auto *native = static_cast<DukTapeEngineNative *>(usrData);
+
+  if (ptr == nullptr) {
+    return;
+  }
+
+  auto *alloc = static_cast<alloc_struct *>(ptr) - 1;
+
+  if (alloc->canary != CANARY_VAL) {
+    debug_print("BAD FREE, WAS NOT ALLOCATED BY US");
+    return;
+  }
+
+  if (native->allocatedMemory < alloc->size) {
+    debug_print("BAD FREE, MEMORY WOULD GO NEGATIVE");
+    native->allocatedMemory = 0;
+  } else {
+    native->allocatedMemory -= alloc->size;
+  }
+
+  alloc->canary = 0;
+  free(alloc);
+}
+
+void DukTapeEngineNative::engine_fatal(void *usrData, const char *msg) {
+  // Clean up and crash the vm
+  auto *native = static_cast<DukTapeEngineNative *>(usrData);
+  string smsg(msg);
+  for (char &i : smsg) {
+    // I mean, it's not exactly the most robust sanitization but it's better than nothin'
+    if (i == '\\' || i == '"') {
+      i = ' ';
+    }
+  }
+  string deadResult = R"({"state": "error", "value": "kill: )" + smsg + R"("})";
+  native->deadResult = make_optional(deadResult);
+  if (native->outputPromise.has_value()) {
+    native->outputPromise->set_value(deadResult);
+  }
+  // We're now dead and can't execute anymore. :'(
+  native->isDead = true;
+
+  debug_print("JS main thread end");
+
+  native->engineLock.unlock();
+
+  pthread_exit(nullptr);
+}
+
+size_t DukTapeEngineNative::getMaxMemory() const {
+  return maxMemory;
+}
+
+void DukTapeEngineNative::setMaxMemory(size_t newMem) {
+  maxMemory = newMem;
+}
+
+size_t DukTapeEngineNative::getAllocatedMemory() const {
+  return allocatedMemory;
 }

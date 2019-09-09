@@ -3,43 +3,49 @@
 #include "com_pwootage_oc_js_spidermonkey_SpiderMonkeyStatic.h"
 #include "SpiderMonkeyEngineNative.h"
 #include <string>
+#include <js/Initialization.h>
 
 using namespace std;
 
+void InitializeSpiderMonkey(JNIEnv *env, jclass clazz);
+SpiderMonkeyEngineNative *getSpiderMonkeyFromJava(JNIEnv *env, jobject obj);
+void setSpiderMonkeyToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data);
+
+jfieldID spiderMonkeyEngineNativeFID = nullptr;
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyStatic_native_1init(JNIEnv *env, jclass clazz) {
-  SpiderMonkeyEngineNative::Initialize(env, clazz);
+  InitializeSpiderMonkey(env, clazz);
 }
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1start(JNIEnv *env, jobject self) {
-  SpiderMonkeyEngineNative *engine = SpiderMonkeyEngineNative::getFromJava(env, self);
+  SpiderMonkeyEngineNative *engine = getSpiderMonkeyFromJava(env, self);
   if (engine == nullptr) {
     printf("Native start\n");
     fflush(stdout);
 
-    engine = new SpiderMonkeyEngineNative(env, self);
-    SpiderMonkeyEngineNative::setToJava(env, self, engine);
+    engine = new SpiderMonkeyEngineNative();
+    setSpiderMonkeyToJava(env, self, engine);
   }
 }
 
 
 JNIEXPORT void JNICALL
 Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1destroy(JNIEnv *env, jobject self) {
-  SpiderMonkeyEngineNative *engine = SpiderMonkeyEngineNative::getFromJava(env, self);
+  SpiderMonkeyEngineNative *engine = getSpiderMonkeyFromJava(env, self);
   if (engine != nullptr) {
     printf("Native destroy\n");
     fflush(stdout);
 
     delete engine;
-    SpiderMonkeyEngineNative::setToJava(env, self, nullptr);
+    setSpiderMonkeyToJava(env, self, nullptr);
   }
 }
 
 JNIEXPORT jstring JNICALL
 Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1next(JNIEnv *env, jobject self, jstring next) {
-  SpiderMonkeyEngineNative *engine = SpiderMonkeyEngineNative::getFromJava(env, self);
+  SpiderMonkeyEngineNative *engine = getSpiderMonkeyFromJava(env, self);
   if (engine != nullptr) {
     const jchar *utfChars = env->GetStringChars(next, nullptr);
     // jchar* is compatible with char16, just is unsigned
@@ -60,4 +66,19 @@ Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1next(JNIEnv *env
   } else {
     return env->NewStringUTF(R"({"type":"no_engine"})");
   }
+}
+
+void InitializeSpiderMonkey(JNIEnv *env, jclass clazz) {
+  JS_Init();
+
+  jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/spidermonkey/SpiderMonkeyEngine");
+  spiderMonkeyEngineNativeFID = env->GetFieldID(v8EngineClass, "spiderMonkeyEngineNative", "J");
+}
+
+SpiderMonkeyEngineNative *getSpiderMonkeyFromJava(JNIEnv *env, jobject obj) {
+  return reinterpret_cast<SpiderMonkeyEngineNative *>(env->GetLongField(obj, spiderMonkeyEngineNativeFID));
+}
+
+void setSpiderMonkeyToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data) {
+  env->SetLongField(obj, spiderMonkeyEngineNativeFID, reinterpret_cast<jlong>(data));
 }

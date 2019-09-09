@@ -16,20 +16,14 @@
 #include "duktape.h"
 
 /**
- * The native equivalent of SpiderMonkeyEngine, where all the SpiderMonkey-related classes are stored.
+ * The native equivalent of DukTapeEngine, where all the DukTape-related classes are stored.
  *
  * We could store these as a bunch of 'long' in the Java class, but that also leads to issues
  * */
 class DukTapeEngineNative {
 public:
-  using JNIPtr = std::unique_ptr<JNIEnv, std::function<void(JNIEnv *)>>;
-
-  DukTapeEngineNative(JNIEnv *env, jobject obj);
+  DukTapeEngineNative();
   ~DukTapeEngineNative();
-
-  static void Initialize(JNIEnv *env, jclass clazz);
-  static DukTapeEngineNative *getFromJava(JNIEnv *env, jobject obj);
-  static void setToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data);
 
   std::thread *mainThread;
 
@@ -38,18 +32,22 @@ public:
   static constexpr size_t MAX_STR_SIZE = 1024 * 1024;
 
   static void debug_print(const std::string& str);
-private:
-  // JVM Stuff
-  JavaVM *javaVM{nullptr};
-  jobject globalObjRef;
 
-  JNIPtr getEnv();
+  [[nodiscard]] size_t getMaxMemory() const;
+  void setMaxMemory(size_t maxMemory);
+  [[nodiscard]] size_t getAllocatedMemory() const;
+
+
+private:
+  // memory
+  size_t maxMemory = 16 * 1024 * 1024;
+  size_t allocatedMemory = 0;
 
   // JS context stuff
   duk_context *context = nullptr;
 
   //JS engine stuff
-  std::string compileAndExecute(std::string src, std::string filename);
+  std::string compileAndExecute(const std::string& src, const std::string &filename);
   //  JS::RootedObject convertException();
 
   // Thread stuff
@@ -71,6 +69,14 @@ private:
   // To java (eventually)
   static duk_ret_t __yield(duk_context *ctx);
   static duk_ret_t __compile(duk_context *ctx);
+
+  // memory functions
+  static void* engine_alloc(void* usrData, size_t size);
+  static void* engine_realloc(void* usrData, void *ptr, size_t size);
+  static void engine_free(void *usrData, void *ptr);
+  static void engine_fatal(void *usrData, const char *msg);
+
+  friend duk_bool_t duk_exec_timeout(void *udata);
 };
 
 

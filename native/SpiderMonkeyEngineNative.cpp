@@ -2,7 +2,6 @@
 // Created by pwootage on 11/14/17.
 //
 #include "SpiderMonkeyEngineNative.h"
-#include <js/Initialization.h>
 #include <js/Conversions.h>
 #include <js/JSON.h>
 #include <js/CompilationAndEvaluation.h>
@@ -40,27 +39,7 @@ static JSClass global_class = {
   &global_ops
 };
 
-jfieldID spiderMonkeyEngineNativeFID = nullptr;
-
-void SpiderMonkeyEngineNative::Initialize(JNIEnv *env, jclass clazz) {
-  JS_Init();
-
-  jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/spidermonkey/SpiderMonkeyEngine");
-  spiderMonkeyEngineNativeFID = env->GetFieldID(v8EngineClass, "spiderMonkeyEngineNative", "J");
-}
-
-SpiderMonkeyEngineNative *SpiderMonkeyEngineNative::getFromJava(JNIEnv *env, jobject obj) {
-  return reinterpret_cast<SpiderMonkeyEngineNative *>(env->GetLongField(obj, spiderMonkeyEngineNativeFID));
-}
-
-void SpiderMonkeyEngineNative::setToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data) {
-  env->SetLongField(obj, spiderMonkeyEngineNativeFID, reinterpret_cast<jlong>(data));
-}
-
-SpiderMonkeyEngineNative::SpiderMonkeyEngineNative(JNIEnv *env, jobject obj) {
-  env->GetJavaVM(&javaVM);
-  globalObjRef = env->NewGlobalRef(obj);
-
+SpiderMonkeyEngineNative::SpiderMonkeyEngineNative() {
   this->mainThread = thread([this] { this->mainThreadFn(); });
 }
 
@@ -75,27 +54,6 @@ SpiderMonkeyEngineNative::~SpiderMonkeyEngineNative() {
   debug_print(u"JS waiting for main thread");
   this->mainThread.join();
   debug_print(u"JS main thread kill complete");
-}
-
-SpiderMonkeyEngineNative::JNIPtr SpiderMonkeyEngineNative::getEnv() {
-  bool detach = false;
-  JNIEnv *env = nullptr;
-  // double check it's all ok
-  int getEnvStat = javaVM->GetEnv((void **) &env, JNI_VERSION_1_6);
-  if (getEnvStat == JNI_EDETACHED) {
-    detach = true;
-    if (javaVM->AttachCurrentThread((void **) &env, NULL) != 0) {
-      cout << "Failed to attach" << endl;
-    }
-  } else if (getEnvStat == JNI_OK) {
-    detach = false;
-  }
-
-  return JNIPtr(env, [this](JNIEnv *ptr) {
-//      if (detach) {
-    this->javaVM->DetachCurrentThread();
-//      }
-  });
 }
 
 future<u16string> SpiderMonkeyEngineNative::next(u16string next) {
@@ -208,8 +166,6 @@ u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
 }
 
 u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string filename) {
-  auto env = getEnv();
-
   JSAutoRealm ar(this->context, *this->globalObject);
 
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;

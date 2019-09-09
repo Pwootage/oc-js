@@ -2926,7 +2926,8 @@ typedef struct duk_hthread duk_context;
 #undef DUK_USE_EXEC_INDIRECT_BOUND_CHECK
 #undef DUK_USE_EXEC_PREFER_SIZE
 #define DUK_USE_EXEC_REGCONST_OPTIMIZE
-#undef DUK_USE_EXEC_TIMEOUT_CHECK
+duk_bool_t duk_exec_timeout(void *udata);
+#define DUK_USE_EXEC_TIMEOUT_CHECK(udata) (duk_exec_timeout(udata))
 #undef DUK_USE_EXPLICIT_NULL_INIT
 #undef DUK_USE_EXTSTR_FREE
 #undef DUK_USE_EXTSTR_INTERN_CHECK
@@ -2967,7 +2968,7 @@ typedef struct duk_hthread duk_context;
 #define DUK_USE_HTML_COMMENTS
 #define DUK_USE_IDCHAR_FASTPATH
 #undef DUK_USE_INJECT_HEAP_ALLOC_ERROR
-#undef DUK_USE_INTERRUPT_COUNTER
+#define DUK_USE_INTERRUPT_COUNTER
 #undef DUK_USE_INTERRUPT_DEBUG_FIXUP
 #define DUK_USE_JC
 #define DUK_USE_JSON_BUILTIN
