@@ -34,11 +34,11 @@
 //            val regex = """\.js:[0-9]+\)"""
 //            val stack = ExceptionUtils.getStackFrames(ex).toSeq.filter(_.contains(".js:")).mkString("\n")
 //            machine.crash("JS error: " + e.getMessage + "\n" + stack)
-//            OCJS.log.error("Error in JS", e)
+//            com.pwootage.oc.js.OCJS.log.error("Error in JS", e)
 //          case _: InterruptedException => //Everything's fine (we just want to shut down JS)
 //          case _ =>
 //            machine.crash("JS error: " + e.toString)
-//            OCJS.log.error("Error in JS thread", e)
+//            com.pwootage.oc.js.OCJS.log.error("Error in JS thread", e)
 //        }
 //      case _ => machine.crash("JS ended execution.")
 //    }
@@ -61,7 +61,7 @@
 //      override def run(): Unit = {
 //        Thread.sleep(10000)
 //        if (t._jsRunning) {
-//          OCJS.log.error("Forcibly killing a javascript thread")
+//          com.pwootage.oc.js.OCJS.log.error("Forcibly killing a javascript thread")
 //          t.stop()
 //        }
 //      }

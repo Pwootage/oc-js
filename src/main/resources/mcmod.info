@@ -1,8 +1,8 @@
 [
 {
-  "modid": "oc-v8",
-  "name": "OC-V8 Arch",
-  "description": "OpenComputers Javascript (ES6) Architecture using V8",
+  "modid": "oc-js",
+  "name": "OC-JS Arch",
+  "description": "OpenComputers Javascript (ES5/ES6) Architecture using duktape/SpiderMonkey",
   "version": "${version}",
   "mcversion": "${mcversion}",
   "url": "",
@@ -11,8 +11,8 @@
   "credits": "",
   "logoFile": "",
   "screenshots": [],
-  "requiredMods": ["forge", "opencomputers"],
-  "dependencies": ["opencomputers"],
+  "requiredMods": ["forge", "opencomputers", "forgelin"],
+  "dependencies": ["opencomputers", "forgelin"],
   "useDependencyInformation": "true"
 }
 ]

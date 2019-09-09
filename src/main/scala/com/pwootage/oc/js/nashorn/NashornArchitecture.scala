@@ -90,7 +90,7 @@
 //      _initialized
 //    } catch {
 //      case e: Throwable =>
-//        OCJS.log.error("Error in initialize", e)
+//        com.pwootage.oc.js.OCJS.log.error("Error in initialize", e)
 //        machine.crash("Error in initialize: " + e.toString)
 //    }
 //  }
@@ -105,7 +105,7 @@
 //      }
 //    } catch {
 //      case e: Throwable =>
-//        OCJS.log.error("Error in runSynchronized", e)
+//        com.pwootage.oc.js.OCJS.log.error("Error in runSynchronized", e)
 //        machine.crash("Error in runSynchronized" + e.toString)
 //    }
 //  }
@@ -162,7 +162,7 @@
 //      }
 //    } catch {
 //      case e: Throwable =>
-//        OCJS.log.error("Error in runThreaded", e)
+//        com.pwootage.oc.js.OCJS.log.error("Error in runThreaded", e)
 //        new ExecutionResult.Error("Error in runThreaded: " + e.toString)
 //    }
 //  }

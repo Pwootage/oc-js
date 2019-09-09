@@ -6,15 +6,15 @@
 
 using namespace std;
 
-void InitializeDuktape(JNIEnv *env, jclass clazz);
+void InitializeDuktape(JNIEnv *env, jobject obj);
 DukTapeEngineNative *getDuktapeFromJava(JNIEnv *env, jobject obj);
 void setDuktapeToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data);
 
 jfieldID DukTapeEngineNativeFID = nullptr;
 
 JNIEXPORT void JNICALL
-Java_com_pwootage_oc_js_duktape_DuktapeStatic_native_1init(JNIEnv *env, jclass clazz) {
-  InitializeDuktape(env, clazz);
+Java_com_pwootage_oc_js_duktape_DuktapeStatic_native_1init(JNIEnv *env, jobject self) {
+  InitializeDuktape(env, self);
 }
 
 JNIEXPORT void JNICALL
@@ -66,7 +66,7 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject 
 }
 
 
-void InitializeDuktape(JNIEnv *env, jclass clazz) {
+void InitializeDuktape(JNIEnv *env, jobject obj) {
   jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
   DukTapeEngineNativeFID = env->GetFieldID(v8EngineClass, "duktapeEngineNative", "J");
 }

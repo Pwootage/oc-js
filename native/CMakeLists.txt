@@ -14,7 +14,7 @@ find_package(JNI REQUIRED)
 include(UseJava)
 
 # JNI
-set(CLASSES_DIR ../build/classes/scala/main/)
+set(CLASSES_DIR ../build/classes/kotlin/main/)
 set(GEN_DIR "gen/")
 set(NATIVE_JAVA_CLASSES
   com.pwootage.oc.js.duktape.DuktapeEngine

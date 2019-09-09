@@ -7,15 +7,15 @@
 
 using namespace std;
 
-void InitializeSpiderMonkey(JNIEnv *env, jclass clazz);
+void InitializeSpiderMonkey(JNIEnv *env, jobject clazz);
 SpiderMonkeyEngineNative *getSpiderMonkeyFromJava(JNIEnv *env, jobject obj);
 void setSpiderMonkeyToJava(JNIEnv *env, jobject obj, SpiderMonkeyEngineNative *data);
 
 jfieldID spiderMonkeyEngineNativeFID = nullptr;
 
 JNIEXPORT void JNICALL
-Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyStatic_native_1init(JNIEnv *env, jclass clazz) {
-  InitializeSpiderMonkey(env, clazz);
+Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyStatic_native_1init(JNIEnv *env, jobject self) {
+  InitializeSpiderMonkey(env, self);
 }
 
 JNIEXPORT void JNICALL
@@ -68,7 +68,7 @@ Java_com_pwootage_oc_js_spidermonkey_SpiderMonkeyEngine_native_1next(JNIEnv *env
   }
 }
 
-void InitializeSpiderMonkey(JNIEnv *env, jclass clazz) {
+void InitializeSpiderMonkey(JNIEnv *env, jobject clazz) {
   JS_Init();
 
   jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/spidermonkey/SpiderMonkeyEngine");
