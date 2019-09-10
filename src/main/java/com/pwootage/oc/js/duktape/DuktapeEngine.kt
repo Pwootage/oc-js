@@ -48,16 +48,7 @@ class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
 
   override fun executeThreaded(jsNext: JSValue): RunThreadedResult {
     tailrec fun execute(jsNextRecursive: JSValue): RunThreadedResult {
-      val jsNextStr = when (jsNextRecursive) {
-        is JSStringValue -> jsNextRecursive.value
-        else -> jsNextRecursive.toJSON()
-      }
-      val nativeRes = native_next(jsNextStr)
-      val jsYield = try {
-        JSValue.fromJSON(nativeRes)
-      } catch (e: Throwable) {
-        throw RuntimeException("Bad native result: $nativeRes", e)
-      }
+      val jsYield = native_next(jsNextRecursive)
       return when (jsYield.property("type").asString) {
         "__bios__" -> RunThreadedResultSleep(0)
         "sleep" -> RunThreadedResultSleep(
@@ -169,5 +160,5 @@ class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
 
   private external fun native_destroy(): Unit
 
-  private external fun native_next(next: String): String
+  private external fun native_next(next: JSValue): JSValue
 }

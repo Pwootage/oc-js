@@ -36,19 +36,19 @@ DukTapeEngineNative::~DukTapeEngineNative() {
   debug_print("JS main thread kill complete");
 }
 
-future<string> DukTapeEngineNative::next(string next) {
-  future<string> res;
+future<JSValuePtr> DukTapeEngineNative::next(JSValuePtr next) {
+  future<JSValuePtr> res;
   {
     lock_guard<mutex> lock(this->executionMutex);
 
     if (this->deadResult) {
-      promise<string> promise;
+      promise<JSValuePtr> promise;
       promise.set_value(*this->deadResult);
       return promise.get_future();
     }
 
     this->nextInput = make_optional(next);
-    this->outputPromise = make_optional(promise<string>());
+    this->outputPromise = make_optional(promise<JSValuePtr>());
     res = this->outputPromise->get_future();
   }
   this->engineWait.notify_one();
@@ -96,8 +96,14 @@ void DukTapeEngineNative::mainThreadFn() {
 //  }
 
   // First yield to get code to execute
-  string src = this->yield(R"({"type": "__bios__"})");
-  string res = this->compileAndExecute(src, "__bios__");
+  JSValuePtr src = this->yield(JSValuePtr(new JSNullValue()));
+  if (src->getType() != JSValue::Type::STRING) {
+    goto dead;
+  }
+
+  JSValuePtr res = this->compileAndExecute(src->asString()->value, "__bios__");
+
+  dead:
   this->deadResult = make_optional(res);
   if (this->outputPromise.has_value()) {
     this->outputPromise->set_value(res);
@@ -110,7 +116,7 @@ void DukTapeEngineNative::mainThreadFn() {
   this->engineLock.unlock();
 }
 
-string DukTapeEngineNative::yield(const string &output) {
+JSValuePtr DukTapeEngineNative::yield(JSValuePtr output) {
   this->outputPromise->set_value(output);
   this->nextInput = nullopt;
   this->outputPromise = nullopt;
@@ -121,7 +127,7 @@ string DukTapeEngineNative::yield(const string &output) {
   return *this->nextInput;
 }
 
-string DukTapeEngineNative::compileAndExecute(const string& src, const string &filename) {
+JSValuePtr DukTapeEngineNative::compileAndExecute(const string& src, const string &filename) {
   duk_push_string(this->context, src.c_str());
   duk_push_string(this->context, filename.c_str());
   if (duk_pcompile(this->context, 0) != 0) {

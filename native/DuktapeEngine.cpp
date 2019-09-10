@@ -2,6 +2,7 @@
 #include "com_pwootage_oc_js_duktape_DuktapeEngine.h"
 #include "com_pwootage_oc_js_duktape_DuktapeStatic.h"
 #include "DuktapeEngineNative.h"
+#include "JSValue.hpp"
 #include <string>
 
 using namespace std;
@@ -10,6 +11,7 @@ void InitializeDuktape(JNIEnv *env, jobject obj);
 DukTapeEngineNative *getDuktapeFromJava(JNIEnv *env, jobject obj);
 void setDuktapeToJava(JNIEnv *env, jobject obj, DukTapeEngineNative *data);
 
+jobject DukTapeEngineClass = nullptr;
 jfieldID DukTapeEngineNativeFID = nullptr;
 
 JNIEXPORT void JNICALL
@@ -42,21 +44,19 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1destroy(JNIEnv *env, jobje
   }
 }
 
-JNIEXPORT jstring JNICALL
-Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject self, jstring next) {
+JNIEXPORT jobject JNICALL
+Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject self, jobject next) {
   DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
   if (engine != nullptr) {
-    const char *utfChars = env->GetStringUTFChars(next, nullptr);
-    string nextVal(utfChars);
-    env->ReleaseStringUTFChars(next, utfChars);
+    auto value = JSValue::fromJVM(env, next);
 
 //    DukTapeEngineNative::debug_print(u"Recieved next: " + nextVal);
-    future<string> resFuture = engine->next(nextVal);
+    future<JSValuePtr> resFuture = engine->next(value);
     auto status = resFuture.wait_for(chrono::seconds(1));
     if (status == future_status::ready) {
-      string res = resFuture.get();
+      JSValuePtr res = resFuture.get();
 //      DukTapeEngineNative::debug_print(u"Recieved next result: " + res);
-      return env->NewStringUTF(res.c_str());
+      return res->toJVM(env);
     } else {
       return env->NewStringUTF(R"({"type":"unresponsive"})");
     }
@@ -67,8 +67,13 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject 
 
 
 void InitializeDuktape(JNIEnv *env, jobject obj) {
-  jclass v8EngineClass = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
-  DukTapeEngineNativeFID = env->GetFieldID(v8EngineClass, "duktapeEngineNative", "J");
+  JSValue::jvmInit(env);
+
+  jclass local = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
+  // this global ref is never freed (naturally)
+  DukTapeEngineClass = env->NewGlobalRef(local);
+  // local should be auto-cleaned up
+  DukTapeEngineNativeFID = env->GetFieldID(local, "duktapeEngineNative", "J");
 }
 
 DukTapeEngineNative *getDuktapeFromJava(JNIEnv *env, jobject obj) {

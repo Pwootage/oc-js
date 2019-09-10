@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
 #add_compile_options(-O0 -g -Wall -fstrict-aliasing -stdlib=libc++)
 #add_definitions(-DDEBUG)
+add_definitions(-DJS_GENERATE_JVM_CONVERT)
 
 # Libraries
 find_package(Java REQUIRED)
@@ -48,7 +49,7 @@ set(SOURCE_FILES
   SpiderMonkeyEngineNative.h
   DuktapeEngine.cpp
   DuktapeEngineNative.cpp
-  DuktapeEngineNative.h)
+  DuktapeEngineNative.h JSValue.cpp JSValue.hpp)
 
 # imported libs
 add_library(mozjs SHARED IMPORTED)

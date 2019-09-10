@@ -14,6 +14,7 @@
 #include <mutex>
 #include <optional>
 #include "duktape.h"
+#include "JSValue.hpp"
 
 /**
  * The native equivalent of DukTapeEngine, where all the DukTape-related classes are stored.
@@ -27,7 +28,7 @@ public:
 
   std::thread *mainThread;
 
-  std::future<std::string> next(std::string next);
+  std::future<JSValuePtr> next(JSValuePtr next);
 
   static constexpr size_t MAX_STR_SIZE = 1024 * 1024;
 
@@ -47,19 +48,19 @@ private:
   duk_context *context = nullptr;
 
   //JS engine stuff
-  std::string compileAndExecute(const std::string& src, const std::string &filename);
+  JSValuePtr compileAndExecute(const std::string& src, const std::string &filename);
   //  JS::RootedObject convertException();
 
   // Thread stuff
   void mainThreadFn();
-  std::string yield(const std::string& output);
+  JSValuePtr yield(JSValuePtr output);
 
   std::mutex executionMutex;
   std::condition_variable engineWait;
   std::unique_lock<std::mutex> engineLock;
-  std::optional<std::string> nextInput = std::nullopt;
-  std::optional<std::promise<std::string>> outputPromise = std::make_optional(std::promise<std::string>());
-  std::optional<std::string> deadResult = std::nullopt;
+  std::optional<JSValuePtr> nextInput = std::nullopt;
+  std::optional<std::promise<JSValuePtr>> outputPromise = std::make_optional(std::promise<JSValuePtr>());
+  std::optional<JSValuePtr> deadResult = std::nullopt;
 
   bool shouldKill{false};
   bool isDead{false};
