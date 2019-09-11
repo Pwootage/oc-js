@@ -6,11 +6,15 @@
 #include <cstdio>
 #include <thread>
 #include <functional>
+#include <locale>
+#include <codecvt>
 
 using namespace std;
 
+constexpr int MAX_OBJ_KEYS = 1000;
+
 duk_bool_t duk_exec_timeout(void *udata) {
-  return static_cast<DukTapeEngineNative*>(udata)->shouldKill;
+  return static_cast<DukTapeEngineNative *>(udata)->shouldKill;
 }
 
 DukTapeEngineNative::DukTapeEngineNative() {
@@ -97,13 +101,14 @@ void DukTapeEngineNative::mainThreadFn() {
 
   // First yield to get code to execute
   JSValuePtr src = this->yield(JSValuePtr(new JSNullValue()));
+  JSValuePtr res;
   if (src->getType() != JSValue::Type::STRING) {
-    goto dead;
+    // todo: throw java exception
+    res = JSValuePtr(new JSStringValue("must provide a string for the first yield"));
+  } else {
+    res = this->compileAndExecute(src->asString()->getValueAsString(), "__bios__");
   }
 
-  JSValuePtr res = this->compileAndExecute(src->asString()->value, "__bios__");
-
-  dead:
   this->deadResult = make_optional(res);
   if (this->outputPromise.has_value()) {
     this->outputPromise->set_value(res);
@@ -127,16 +132,20 @@ JSValuePtr DukTapeEngineNative::yield(JSValuePtr output) {
   return *this->nextInput;
 }
 
-JSValuePtr DukTapeEngineNative::compileAndExecute(const string& src, const string &filename) {
+JSValuePtr DukTapeEngineNative::compileAndExecute(const string &src, const string &filename) {
   duk_push_string(this->context, src.c_str());
   duk_push_string(this->context, filename.c_str());
   if (duk_pcompile(this->context, 0) != 0) {
-    return "compile failed: " + string(duk_safe_to_string(this->context, -1));
+    return JSValuePtr(new JSStringValue(
+      "compile failed: " + string(duk_safe_to_string(this->context, -1))
+    ));
   }
   if (duk_pcall(this->context, 0) != 0) {
-    return "pcall failed: " + string(duk_safe_to_string(this->context, -1));
+    return JSValuePtr(new JSStringValue(
+      "pcall failed: " + string(duk_safe_to_string(this->context, -1))
+    ));
   }
-  return string(duk_safe_to_string(this->context, -1));
+  return convertObjectToJSValue(-1);
 }
 
 duk_ret_t DukTapeEngineNative::__yield(duk_context *ctx) {
@@ -151,14 +160,13 @@ duk_ret_t DukTapeEngineNative::__yield(duk_context *ctx) {
   duk_pop(ctx);
 
   // pull out args
-  string json(duk_require_string(ctx, 0));
-  duk_pop(ctx);
+  JSValuePtr args = native->convertObjectToJSValue(0);
 
   // yield
-  string res = native->yield(json);
+  JSValuePtr res = native->yield(args);
 
   // Return
-  duk_push_string(ctx, res.c_str());
+  native->pushJSValue(res);
   return 1;
 }
 
@@ -276,7 +284,7 @@ void DukTapeEngineNative::engine_fatal(void *usrData, const char *msg) {
       i = ' ';
     }
   }
-  string deadResult = R"({"state": "error", "value": "kill: )" + smsg + R"("})";
+  JSValuePtr deadResult = JSValuePtr(new JSStringValue(R"({"state": "error", "value": "kill: )" + smsg + R"("})"));
   native->deadResult = make_optional(deadResult);
   if (native->outputPromise.has_value()) {
     native->outputPromise->set_value(deadResult);
@@ -301,4 +309,124 @@ void DukTapeEngineNative::setMaxMemory(size_t newMem) {
 
 size_t DukTapeEngineNative::getAllocatedMemory() const {
   return allocatedMemory;
+}
+
+void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
+  duk_context *ctx = this->context;
+
+  switch (ptr->getType()) {
+    case JSValue::Type::STRING: {
+      auto str = ptr->asString()->getValueAsString();
+      duk_push_lstring(ctx, str.c_str(), str.length());
+      break;
+    }
+    case JSValue::Type::BOOLEAN: {
+      duk_push_boolean(ctx, ptr->asBoolean()->value);
+      break;
+    }
+    case JSValue::Type::DOUBLE: {
+      duk_push_number(ctx, ptr->asDouble()->value);
+      break;
+    }
+    case JSValue::Type::ARRAY: {
+      auto &arr = ptr->asArray()->value;
+      duk_push_array(ctx);
+      for (size_t i = 0; i < arr.size(); i++) {
+        pushJSValue(arr[i]);
+        duk_put_prop_index(ctx, -2, i);
+      }
+      break;
+    }
+    case JSValue::Type::BYTE_ARRAY: {
+      auto &buf = ptr->asByteArray()->value;
+      duk_push_fixed_buffer(ctx, buf.size());
+      void *dukBuff = duk_get_buffer_data(ctx, -1, nullptr);
+      memcpy(dukBuff, buf.data(), buf.size());
+      duk_push_buffer_object(ctx, -1, 0, buf.size(), DUK_BUFOBJ_UINT8ARRAY);
+      duk_remove(ctx, -2);
+      break;
+    }
+    case JSValue::Type::MAP: {
+      std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+      auto &map = ptr->asMap()->value;
+      duk_push_object(ctx);
+      for (auto &ele : map) {
+        pushJSValue(ele.second);
+        std::string key = convert.to_bytes(ele.first);
+        duk_put_prop_lstring(ctx, -2, key.c_str(), key.length());
+      }
+      break;
+    }
+    case JSValue::Type::NULL_TYPE: {
+      duk_push_null(ctx);
+      break;
+    }
+  }
+}
+
+JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
+  duk_context *ctx = this->context;
+  duk_int_t type = duk_get_type(ctx, idx);
+
+  switch (type) {
+    case DUK_TYPE_BOOLEAN: {
+      duk_bool_t v = duk_require_boolean(ctx, idx);
+      return JSValuePtr(new JSBooleanValue(v));
+    }
+    case DUK_TYPE_NUMBER: {
+      duk_double_t d = duk_require_number(ctx, idx);
+      return JSValuePtr(new JSDoubleValue(d));
+    }
+    case DUK_TYPE_STRING: {
+      duk_size_t len = 0;
+      const char *chars = duk_require_lstring(ctx, idx, &len);
+      std::string str(chars, len);
+      return JSValuePtr(new JSStringValue(str));
+    }
+    case DUK_TYPE_BUFFER:
+    case DUK_TYPE_OBJECT : {
+      if (duk_is_buffer_data(ctx, idx)) {
+        duk_size_t size = 0;
+        void *buffData = duk_require_buffer_data(ctx, idx, &size);
+        std::vector<uint8_t> resBuff;
+        resBuff.resize(size);
+        memcpy(resBuff.data(), buffData, size);
+        return JSValuePtr(new JSByteArrayValue(resBuff));
+      } else if (duk_is_array(ctx, idx)) {
+        duk_size_t len = duk_get_length(ctx, idx);
+        if (len > MAX_OBJ_KEYS) len = MAX_OBJ_KEYS;
+        std::vector<JSValuePtr> resVec;
+        resVec.resize(len);
+        for (size_t i = 0; i < len; i++) {
+          duk_get_prop_index(ctx, idx, i);
+          resVec[i] = convertObjectToJSValue(-1);
+          duk_pop(ctx);
+        }
+        return JSValuePtr(new JSArrayValue(resVec));
+      } else {
+        std::unordered_map<std::u16string, JSValuePtr> res;
+        // is an object
+        size_t safety = 0;
+        duk_enum(ctx, idx, DUK_ENUM_OWN_PROPERTIES_ONLY);
+        while (safety < MAX_OBJ_KEYS && duk_next(ctx, -1, 1)) {
+          safety++;
+          size_t keyLen = 0;
+          const char *keyChars = duk_safe_to_lstring(ctx, -2, &keyLen);
+          std::string keyStr(keyChars, keyLen);
+          std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+          std::u16string key = convert.from_bytes(keyStr);
+          res[key] = convertObjectToJSValue(-1);
+          duk_pop_2(ctx);
+        }
+        duk_pop(ctx);
+      }
+    }
+    case DUK_TYPE_POINTER:
+    case DUK_TYPE_LIGHTFUNC:
+    case DUK_TYPE_UNDEFINED:
+    case DUK_TYPE_NULL:
+    case DUK_TYPE_NONE:
+    default:
+      return JSValuePtr(new JSNullValue());
+  }
 }

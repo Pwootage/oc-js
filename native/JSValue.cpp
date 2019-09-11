@@ -1,6 +1,8 @@
 #include "JSValue.hpp"
 
 #include <utility>
+#include <codecvt>
+#include <locale>
 
 #if JS_GENERATE_JVM_CONVERT
 
@@ -59,25 +61,25 @@ void JSValue::jvmInit(JNIEnv *env) {
 
   clazz = env->FindClass("com/pwootage/oc/js/JSBooleanValue");
   JSBooleanValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSBooleanValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
+  JSBooleanValue_init = env->GetMethodID(clazz, "<init>", "(Z)V");
   JSBooleanValue_value = env->GetFieldID(clazz, "value", "Z");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("com/pwootage/oc/js/JSByteArray");
   JSByteArrayValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSByteArrayValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
+  JSByteArrayValue_init = env->GetMethodID(clazz, "<init>", "([B])V");
   JSByteArrayValue_value = env->GetFieldID(clazz, "value", "[B");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("com/pwootage/oc/js/JSDoubleValue");
   JSDoubleValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSDoubleValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
+  JSDoubleValue_init = env->GetMethodID(clazz, "<init>", "(D)V");
   JSDoubleValue_value = env->GetFieldID(clazz, "value", "D");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("com/pwootage/oc/js/JSMap");
   JSMapValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSMapValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
+  JSMapValue_init = env->GetMethodID(clazz, "<init>", "(Ljava/util/Map;)V");
   JSMapValue_value = env->GetFieldID(clazz, "value", "Ljava/util/Map;");
   env->DeleteLocalRef(clazz);
 
@@ -88,16 +90,16 @@ void JSValue::jvmInit(JNIEnv *env) {
 
   clazz = env->FindClass("com/pwootage/oc/js/JSStringValue");
   JSStringValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSStringValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
+  JSStringValue_init = env->GetMethodID(clazz, "<init>", "(Ljava/lang/String;)V");
   JSStringValue_value = env->GetFieldID(clazz, "value", "Ljava/lang/String;");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("java/util/HashMap");
   HashMap_class = (jclass) env->NewGlobalRef(clazz);
   HashMap_init = env->GetMethodID(clazz, "<init>", "()V");
-  HashMap_put = env->GetMethodID(clazz, "put", "(Ljava/lang/Object;)Ljava/lang/Object;");
+  HashMap_put = env->GetMethodID(clazz, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
   HashMap_get = env->GetMethodID(clazz, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
-  HashMap_get = env->GetMethodID(clazz, "keySet", "()Ljava/lang/Set;");
+  HashMap_keySet = env->GetMethodID(clazz, "keySet", "()Ljava/util/Set;");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("java/util/Set");
@@ -172,6 +174,77 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
   return std::make_unique<JSNullValue>();
 }
 
+std::shared_ptr<JSStringValue> JSValue::asString() {
+  if (getType() == Type::STRING) {
+    return std::shared_ptr<JSStringValue>((JSStringValue*)this);
+  } else {
+    return std::shared_ptr<JSStringValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSBooleanValue> JSValue::asBoolean() {
+  if (getType() == Type::BOOLEAN) {
+    return std::shared_ptr<JSBooleanValue>((JSBooleanValue*)this);
+  } else {
+    return std::shared_ptr<JSBooleanValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSDoubleValue> JSValue::asDouble() {
+  if (getType() == Type::BOOLEAN) {
+    return std::shared_ptr<JSDoubleValue>((JSDoubleValue*)this);
+  } else {
+    return std::shared_ptr<JSDoubleValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSArrayValue> JSValue::asArray() {
+  if (getType() == Type::ARRAY) {
+    return std::shared_ptr<JSArrayValue>((JSArrayValue*)this);
+  } else {
+    return std::shared_ptr<JSArrayValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSByteArrayValue> JSValue::asByteArray() {
+  if (getType() == Type::BYTE_ARRAY) {
+    return std::shared_ptr<JSByteArrayValue>((JSByteArrayValue*)this);
+  } else {
+    return std::shared_ptr<JSByteArrayValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSMapValue> JSValue::asMap() {
+  if (getType() == Type::MAP) {
+    return std::shared_ptr<JSMapValue>((JSMapValue*)this);
+  } else {
+    return std::shared_ptr<JSMapValue>(nullptr);
+  }
+}
+
+std::shared_ptr<JSNullValue> JSValue::asNull() {
+  if (getType() == Type::NULL_TYPE) {
+    return std::shared_ptr<JSNullValue>((JSNullValue*)this);
+  } else {
+    return std::shared_ptr<JSNullValue>(nullptr);
+  }
+}
+
+
+jobject JSStringValue::toJVM(JNIEnv *env) {
+  // jchar is 16bit so this is compatible
+  jstring str = env->NewString(reinterpret_cast<const jchar *>(value.c_str()), value.length());
+  return env->NewObject(JSStringValue_class, JSStringValue_init, str);
+}
+
+jobject JSBooleanValue::toJVM(JNIEnv *env) {
+  return env->NewObject(JSBooleanValue_class, JSBooleanValue_init, value);
+}
+
+jobject JSDoubleValue::toJVM(JNIEnv *env) {
+  return env->NewObject(JSDoubleValue_class, JSDoubleValue_init, value);
+}
+
 jobject JSArrayValue::toJVM(JNIEnv *env) {
   jobjectArray array = env->NewObjectArray(value.size(), JSValue_class, nullptr);
   for (size_t i = 0; i < value.size(); i++) {
@@ -183,26 +256,20 @@ jobject JSArrayValue::toJVM(JNIEnv *env) {
   return env->NewObject(JSArrayValue_class, JSArrayValue_init, array);
 }
 
-jobject JSBooleanValue::toJVM(JNIEnv *env) {
-  return env->NewObject(JSBooleanValue_class, JSBooleanValue_init, value);
-}
-
 jobject JSByteArrayValue::toJVM(JNIEnv *env) {
   jbyteArray array = env->NewByteArray(value.size());
   env->SetByteArrayRegion(array, 0, value.size(), reinterpret_cast<const jbyte *>(value.data()));
   return env->NewObject(JSByteArrayValue_class, JSByteArrayValue_init, array);
 }
 
-jobject JSDoubleValue::toJVM(JNIEnv *env) {
-  return env->NewObject(JSDoubleValue_class, JSDoubleValue_init, value);
-}
-
 jobject JSMapValue::toJVM(JNIEnv *env) {
   jobject map = env->NewObject(HashMap_class, HashMap_init);
 
   for (const auto &v : value) {
+    jstring str = env->NewString(reinterpret_cast<const jchar *>(v.first.c_str()), v.first.length());
     jobject obj = v.second->toJVM(env);
-    env->CallObjectMethod(obj, HashMap_put, obj);
+    env->CallObjectMethod(obj, HashMap_put, str, obj);
+    env->DeleteLocalRef(str);
     env->DeleteLocalRef(obj);
   }
 
@@ -213,53 +280,57 @@ jobject JSNullValue::toJVM(JNIEnv *env) {
   return env->GetStaticObjectField(JSNullValue_class, JSNullValue_INSTANCE);
 }
 
-jobject JSStringValue::toJVM(JNIEnv *env) {
-  // jchar is 16bit so this is compatible
-  jstring str = env->NewString(reinterpret_cast<const jchar *>(value.c_str()), value.length());
-  return env->NewObject(JSStringValue_class, JSStringValue_init, str);
-}
-
 #endif
 
+JSStringValue::JSStringValue(std::u16string value) : value(std::move(value)) {}
 
-JSValue::Type JSArrayValue::getType() {
-  return JSValue::Type::ARRAY;
+JSStringValue::JSStringValue(const std::string& value) {
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+  this->value = convert.from_bytes(value);
 }
-
-JSArrayValue::JSArrayValue(std::vector<JSValuePtr> value) : value(std::move(value)) {}
-
-JSValue::Type JSBooleanValue::getType() {
-  return JSValue::Type::BOOLEAN;
-}
-
-JSBooleanValue::JSBooleanValue(bool value) : value(value) {}
-
-JSValue::Type JSByteArrayValue::getType() {
-  return JSValue::Type::BYTE_ARRAY;
-}
-
-JSByteArrayValue::JSByteArrayValue(std::vector<uint8_t> value) : value(std::move(value)) {}
-
-JSValue::Type JSDoubleValue::getType() {
-  return JSValue::Type::DOUBLE;
-}
-
-JSDoubleValue::JSDoubleValue(double value) : value(value) {}
-
-JSValue::Type JSMapValue::getType() {
-  return JSValue::Type::MAP;
-}
-
-JSMapValue::JSMapValue(std::unordered_map<std::u16string, JSValuePtr> value) : value(std::move(value)) {}
-
-JSValue::Type JSNullValue::getType() {
-  return JSValue::Type::NULL_TYPE;
-}
-
-JSNullValue::JSNullValue() = default;
 
 JSValue::Type JSStringValue::getType() {
   return JSValue::Type::STRING;
 }
 
-JSStringValue::JSStringValue(std::u16string value) : value(std::move(value)) {}
+std::string JSStringValue::getValueAsString() {
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+  return convert.to_bytes(value);
+}
+
+JSBooleanValue::JSBooleanValue(bool value) : value(value) {}
+
+JSValue::Type JSBooleanValue::getType() {
+  return JSValue::Type::BOOLEAN;
+}
+
+JSDoubleValue::JSDoubleValue(double value) : value(value) {}
+
+JSValue::Type JSDoubleValue::getType() {
+  return JSValue::Type::DOUBLE;
+}
+
+JSArrayValue::JSArrayValue(std::vector<JSValuePtr> value) : value(std::move(value)) {}
+
+JSValue::Type JSArrayValue::getType() {
+  return JSValue::Type::ARRAY;
+}
+
+// TODO: is this copying the data? it's been too long
+JSByteArrayValue::JSByteArrayValue(std::vector<uint8_t> value) : value(std::move(value)) {}
+
+JSValue::Type JSByteArrayValue::getType() {
+  return JSValue::Type::BYTE_ARRAY;
+}
+
+JSMapValue::JSMapValue(std::unordered_map<std::u16string, JSValuePtr> value) : value(std::move(value)) {}
+
+JSValue::Type JSMapValue::getType() {
+  return JSValue::Type::MAP;
+}
+
+JSNullValue::JSNullValue() = default;
+
+JSValue::Type JSNullValue::getType() {
+  return JSValue::Type::NULL_TYPE;
+}

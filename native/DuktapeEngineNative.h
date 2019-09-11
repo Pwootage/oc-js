@@ -49,6 +49,8 @@ private:
 
   //JS engine stuff
   JSValuePtr compileAndExecute(const std::string& src, const std::string &filename);
+  void pushJSValue(const JSValuePtr& ptr);
+  JSValuePtr convertObjectToJSValue(duk_idx_t idx);
   //  JS::RootedObject convertException();
 
   // Thread stuff

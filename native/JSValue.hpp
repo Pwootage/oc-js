@@ -37,13 +37,13 @@ struct JSValue {
 
   virtual Type getType() = 0;
 
-  std::shared_ptr<JSStringValue> asString() {
-    if (getType() == Type::STRING) {
-      return std::shared_ptr<JSStringValue>((JSStringValue*)this);
-    } else {
-      return std::shared_ptr<JSStringValue>(nullptr);
-    }
-  }
+  std::shared_ptr<JSStringValue> asString();
+  std::shared_ptr<JSBooleanValue> asBoolean();
+  std::shared_ptr<JSDoubleValue> asDouble();
+  std::shared_ptr<JSArrayValue> asArray();
+  std::shared_ptr<JSByteArrayValue> asByteArray();
+  std::shared_ptr<JSMapValue> asMap();
+  std::shared_ptr<JSNullValue> asNull();
 
   #ifdef JS_GENERATE_JVM_CONVERT
   virtual jobject toJVM(JNIEnv *env) = 0;
@@ -54,9 +54,11 @@ struct JSValue {
 
 struct JSStringValue : public JSValue {
   explicit JSStringValue(std::u16string value);
+  explicit JSStringValue(const std::string& value);
   Type getType() override;
   //TODO: helper methods for to/from u8 (since we store it as u16)
 
+  std::string getValueAsString();
   #ifdef JS_GENERATE_JVM_CONVERT
   jobject toJVM(JNIEnv *env) override;
   #endif
