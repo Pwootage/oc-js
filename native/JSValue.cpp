@@ -55,8 +55,8 @@ void JSValue::jvmInit(JNIEnv *env) {
 
   clazz = env->FindClass("com/pwootage/oc/js/JSArray");
   JSArrayValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSArrayValue_init = env->GetMethodID(clazz, "<init>", "([Ljava/lang/Object;)V");
-  JSArrayValue_value = env->GetFieldID(clazz, "value", "[Ljava/lang/Object;");
+  JSArrayValue_init = env->GetMethodID(clazz, "<init>", "([Lcom/pwootage/oc/js/JSValue;)V");
+  JSArrayValue_value = env->GetFieldID(clazz, "value", "[Lcom/pwootage/oc/js/JSValue;");
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("com/pwootage/oc/js/JSBooleanValue");
@@ -67,7 +67,7 @@ void JSValue::jvmInit(JNIEnv *env) {
 
   clazz = env->FindClass("com/pwootage/oc/js/JSByteArray");
   JSByteArrayValue_class = (jclass) env->NewGlobalRef(clazz);
-  JSByteArrayValue_init = env->GetMethodID(clazz, "<init>", "([B])V");
+  JSByteArrayValue_init = env->GetMethodID(clazz, "<init>", "([B)V");
   JSByteArrayValue_value = env->GetFieldID(clazz, "value", "[B");
   env->DeleteLocalRef(clazz);
 
