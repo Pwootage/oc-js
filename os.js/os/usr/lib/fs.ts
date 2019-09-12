@@ -9,11 +9,11 @@ class File {
     return this.fs.close(this.handle);
   }
 
-  read(count?: number): string {
+  read(count?: number): Uint8Array {
     return this.fs.read(this.handle, count || Math.pow(2, 16));
   }
 
-  write(data: string): boolean {
+  write(data: Uint8Array): boolean {
     return this.fs.write(this.handle, data);
   }
 }
@@ -24,6 +24,10 @@ export class FileSystem {
   PWD = '/';
 
   constructor(private root: FilesystemComponentAPI) {
+  }
+
+  size(filePath: string): number {
+    return this.root.size(filePath);
   }
 
   open(filePath: string, mode: string = 'r'): File | null {

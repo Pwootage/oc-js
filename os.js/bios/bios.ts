@@ -19,8 +19,7 @@ declare var __yield: __yieldFunction;
 declare var __compile: __compileFunction;
 
 function biosYield<T>(call: BiosYield): T {
-  const biosResJson = __yield(JSON.stringify(call));
-  const result: BiosYieldResult = JSON.parse(biosResJson);
+  const result = __yield(call);
   if (!result) {
     return result;
   } else if (result.state == 'success') {
@@ -103,11 +102,11 @@ class BiosComponentApiImpl implements BiosComponentApi {
       if (method.getter || method.setter) {
         Object.defineProperty(res, method.name, {
           enumerable: true,
-          'get': method.getter ? g.bind(this, method.name) : null,
-          'set': method.setter ? s.bind(this, method.name) : null
+          'get': method.getter ? g.bind(this, method.name) : undefined,
+          'set': method.setter ? s.bind(this, method.name) : undefined
         });
       } else {
-        let i = (n: string, ...args: any[]) => this.invoke.apply(this, [address, n].concat(args));
+        let i = (n: string, ...args: any[]) => this.invoke.apply(this, [address, n, ...args]);
         Object.defineProperty(res, method.name, {
           enumerable: true,
           writable: false,

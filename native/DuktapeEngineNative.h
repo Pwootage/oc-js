@@ -55,7 +55,7 @@ private:
 
   // Thread stuff
   void mainThreadFn();
-  JSValuePtr yield(JSValuePtr output);
+  JSValuePtr yield(const JSValuePtr& output);
 
   std::mutex executionMutex;
   std::condition_variable engineWait;

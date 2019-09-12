@@ -25,6 +25,7 @@
     "bios.ts",
     "bootloader.ts",
     "../os/usr/lib/bios.d.ts",
+    "../os/usr/lib/text-encoding.d.ts",
     "../os/usr/lib/externalComponents.d.ts"
   ],
   "compileOnSave": true,

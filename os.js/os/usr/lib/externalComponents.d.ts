@@ -3,13 +3,13 @@ export interface ComponentBase {
 }
 
 export interface EEPROMComponentAPI extends ComponentBase {
-  get(): string
-  set(data: string): void
+  get(): Uint8Array
+  set(data: Uint8Array): void
   getLabel(): string
   setLabel(data: string): void
   getSize(): number
-  getData(): string
-  setData(data: string): void
+  getData(): Uint8Array
+  setData(data: Uint8Array): void
   getChecksum(): string
   makeReadonly(checksum: string): boolean
 }
@@ -21,7 +21,7 @@ export interface FilesystemComponentAPI extends ComponentBase {
   makeDirectory(path: string): boolean
   exists(path: string): boolean
   isReadOnly(): boolean
-  write(handle: number, value: string): boolean
+  write(handle: number, value: Uint8Array): boolean
   spaceTotal(): number
   isDirectory(path: string): boolean
   rename(from: string, to: string): boolean
@@ -31,7 +31,7 @@ export interface FilesystemComponentAPI extends ComponentBase {
   remove(path: string): boolean
   close(handle: number): void
   size(path: string): number
-  read(handle: number, count: number): string
+  read(handle: number, count: number): Uint8Array
   setLabel(value: string): string
 }
 

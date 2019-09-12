@@ -100,7 +100,9 @@ void DukTapeEngineNative::mainThreadFn() {
 //  }
 
   // First yield to get code to execute
-  JSValuePtr src = this->yield(JSValuePtr(new JSNullValue()));
+  std::unordered_map<std::u16string, JSValuePtr> map;
+  map[u"type"] = JSValuePtr(new JSStringValue("__bios__"));
+  JSValuePtr src = this->yield(JSValuePtr(new JSMapValue(map)));
   JSValuePtr res;
   if (src->getType() != JSValue::Type::STRING) {
     // todo: throw java exception
@@ -121,7 +123,7 @@ void DukTapeEngineNative::mainThreadFn() {
   this->engineLock.unlock();
 }
 
-JSValuePtr DukTapeEngineNative::yield(JSValuePtr output) {
+JSValuePtr DukTapeEngineNative::yield(const JSValuePtr &output) {
   this->outputPromise->set_value(output);
   this->nextInput = nullopt;
   this->outputPromise = nullopt;
@@ -316,19 +318,23 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
 
   switch (ptr->getType()) {
     case JSValue::Type::STRING: {
+      debug_print("Pushing string");
       auto str = ptr->asString()->getValueAsString();
       duk_push_lstring(ctx, str.c_str(), str.length());
       break;
     }
     case JSValue::Type::BOOLEAN: {
+      debug_print("Pushing bool");
       duk_push_boolean(ctx, ptr->asBoolean()->value);
       break;
     }
     case JSValue::Type::DOUBLE: {
+      debug_print("Pushing double");
       duk_push_number(ctx, ptr->asDouble()->value);
       break;
     }
     case JSValue::Type::ARRAY: {
+      debug_print("Pushing array");
       auto &arr = ptr->asArray()->value;
       duk_push_array(ctx);
       for (size_t i = 0; i < arr.size(); i++) {
@@ -338,6 +344,7 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       break;
     }
     case JSValue::Type::BYTE_ARRAY: {
+      debug_print("Pushing byte array");
       auto &buf = ptr->asByteArray()->value;
       duk_push_fixed_buffer(ctx, buf.size());
       void *dukBuff = duk_get_buffer_data(ctx, -1, nullptr);
@@ -347,19 +354,25 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       break;
     }
     case JSValue::Type::MAP: {
+      debug_print("Pushing map");
       std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
       auto &map = ptr->asMap()->value;
       duk_push_object(ctx);
       for (auto &ele : map) {
-        pushJSValue(ele.second);
         std::string key = convert.to_bytes(ele.first);
+        debug_print("Pushing key " + key);
+        pushJSValue(ele.second);
         duk_put_prop_lstring(ctx, -2, key.c_str(), key.length());
       }
       break;
     }
     case JSValue::Type::NULL_TYPE: {
+      debug_print("Pushing null");
       duk_push_null(ctx);
       break;
+    }
+    default: {
+      debug_print("Pushing nothing?!?");
     }
   }
 }
@@ -404,6 +417,7 @@ JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
         }
         return JSValuePtr(new JSArrayValue(resVec));
       } else {
+        std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
         std::unordered_map<std::u16string, JSValuePtr> res;
         // is an object
         size_t safety = 0;
@@ -413,12 +427,12 @@ JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
           size_t keyLen = 0;
           const char *keyChars = duk_safe_to_lstring(ctx, -2, &keyLen);
           std::string keyStr(keyChars, keyLen);
-          std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
           std::u16string key = convert.from_bytes(keyStr);
           res[key] = convertObjectToJSValue(-1);
           duk_pop_2(ctx);
         }
         duk_pop(ctx);
+        return JSValuePtr(new JSMapValue(res));
       }
     }
     case DUK_TYPE_POINTER:

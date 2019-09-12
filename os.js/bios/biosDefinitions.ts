@@ -42,5 +42,5 @@ export interface BiosYieldResult {
   value: any;
 }
 
-export type __yieldFunction = (call: string) => string;
+export type __yieldFunction = (call: BiosYield) => BiosYieldResult;
 export type __compileFunction = (file: string, src: string) => any;

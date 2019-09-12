@@ -7,12 +7,11 @@ import {FileSystem} from "../lib/fs";
   class RequireImpl {
     constructor() {
       this.loadFile = path => {
-        let handle = $bios.bootFS.open(path, 'r');
-        let src = '';
-        let read: string;
-        while (read = $bios.bootFS.read(handle, 1024)) src += read;
+        const handle = $bios.bootFS.open(path, 'r');
+        const size = $bios.bootFS.size(path);
+        let src = $bios.bootFS.read(handle, size);
         $bios.bootFS.close(handle);
-        return src;
+        return new TextDecoder('utf-8').decode(src);
       };
       //Naive but functional for what it's called with
       this.basename = path => {
@@ -33,13 +32,12 @@ import {FileSystem} from "../lib/fs";
       this.fsImpl = this.apply('/usr/lib/fs.js').fs;
 
       this.loadFile = path => {
-        let f = this.fsImpl.open(path);
-        if (!f) {
-          return null;
-        }
-        let src = '';
-        let read: string;
-        while (read = f.read(512)) src += read;
+        const f = this.fsImpl.open(path);
+        if (!f) return null;
+        const size = this.fsImpl.size(path);
+        let src = new TextDecoder('utf-8').decode(
+          f.read(size)
+        );
         f.close();
         return src;
       };

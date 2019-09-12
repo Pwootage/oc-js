@@ -50,7 +50,7 @@ void JSValue::jvmInit(JNIEnv *env) {
   initialized = true;
 
   jclass clazz = env->FindClass("com/pwootage/oc/js/JSValue");
-  JSArrayValue_class = (jclass) env->NewGlobalRef(clazz);
+  JSValue_class = (jclass) env->NewGlobalRef(clazz);
   env->DeleteLocalRef(clazz);
 
   clazz = env->FindClass("com/pwootage/oc/js/JSArray");
@@ -174,63 +174,6 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
   return std::make_unique<JSNullValue>();
 }
 
-std::shared_ptr<JSStringValue> JSValue::asString() {
-  if (getType() == Type::STRING) {
-    return std::shared_ptr<JSStringValue>((JSStringValue*)this);
-  } else {
-    return std::shared_ptr<JSStringValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSBooleanValue> JSValue::asBoolean() {
-  if (getType() == Type::BOOLEAN) {
-    return std::shared_ptr<JSBooleanValue>((JSBooleanValue*)this);
-  } else {
-    return std::shared_ptr<JSBooleanValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSDoubleValue> JSValue::asDouble() {
-  if (getType() == Type::BOOLEAN) {
-    return std::shared_ptr<JSDoubleValue>((JSDoubleValue*)this);
-  } else {
-    return std::shared_ptr<JSDoubleValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSArrayValue> JSValue::asArray() {
-  if (getType() == Type::ARRAY) {
-    return std::shared_ptr<JSArrayValue>((JSArrayValue*)this);
-  } else {
-    return std::shared_ptr<JSArrayValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSByteArrayValue> JSValue::asByteArray() {
-  if (getType() == Type::BYTE_ARRAY) {
-    return std::shared_ptr<JSByteArrayValue>((JSByteArrayValue*)this);
-  } else {
-    return std::shared_ptr<JSByteArrayValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSMapValue> JSValue::asMap() {
-  if (getType() == Type::MAP) {
-    return std::shared_ptr<JSMapValue>((JSMapValue*)this);
-  } else {
-    return std::shared_ptr<JSMapValue>(nullptr);
-  }
-}
-
-std::shared_ptr<JSNullValue> JSValue::asNull() {
-  if (getType() == Type::NULL_TYPE) {
-    return std::shared_ptr<JSNullValue>((JSNullValue*)this);
-  } else {
-    return std::shared_ptr<JSNullValue>(nullptr);
-  }
-}
-
-
 jobject JSStringValue::toJVM(JNIEnv *env) {
   // jchar is 16bit so this is compatible
   jstring str = env->NewString(reinterpret_cast<const jchar *>(value.c_str()), value.length());
@@ -264,11 +207,10 @@ jobject JSByteArrayValue::toJVM(JNIEnv *env) {
 
 jobject JSMapValue::toJVM(JNIEnv *env) {
   jobject map = env->NewObject(HashMap_class, HashMap_init);
-
   for (const auto &v : value) {
     jstring str = env->NewString(reinterpret_cast<const jchar *>(v.first.c_str()), v.first.length());
     jobject obj = v.second->toJVM(env);
-    env->CallObjectMethod(obj, HashMap_put, str, obj);
+    env->CallObjectMethod(map, HashMap_put, str, obj);
     env->DeleteLocalRef(str);
     env->DeleteLocalRef(obj);
   }
@@ -281,6 +223,62 @@ jobject JSNullValue::toJVM(JNIEnv *env) {
 }
 
 #endif
+
+JSStringValue *JSValue::asString() {
+  if (getType() == Type::STRING) {
+    return (JSStringValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSBooleanValue *JSValue::asBoolean() {
+  if (getType() == Type::BOOLEAN) {
+    return (JSBooleanValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSDoubleValue *JSValue::asDouble() {
+  if (getType() == Type::DOUBLE) {
+    return (JSDoubleValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSArrayValue *JSValue::asArray() {
+  if (getType() == Type::ARRAY) {
+    return (JSArrayValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSByteArrayValue *JSValue::asByteArray() {
+  if (getType() == Type::BYTE_ARRAY) {
+    return (JSByteArrayValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSMapValue *JSValue::asMap() {
+  if (getType() == Type::MAP) {
+    return (JSMapValue*)this;
+  } else {
+    return nullptr;
+  }
+}
+
+JSNullValue *JSValue::asNull() {
+  if (getType() == Type::NULL_TYPE) {
+    return (JSNullValue*)this;
+  } else {
+    return nullptr;
+  }
+}
 
 JSStringValue::JSStringValue(std::u16string value) : value(std::move(value)) {}
 

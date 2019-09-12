@@ -4,7 +4,8 @@ project(ocjs)
 set(CMAKE_CXX_STANDARD 17)
 
 # Compiler options
-add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
+#add_compile_options(-O2 -Wall -fstrict-aliasing -stdlib=libc++)
+add_compile_options(-O2 -g -Wall -fstrict-aliasing -stdlib=libc++)
 #add_compile_options(-O0 -g -Wall -fstrict-aliasing -stdlib=libc++)
 #add_definitions(-DDEBUG)
 add_definitions(-DJS_GENERATE_JVM_CONVERT)

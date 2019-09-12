@@ -37,13 +37,13 @@ struct JSValue {
 
   virtual Type getType() = 0;
 
-  std::shared_ptr<JSStringValue> asString();
-  std::shared_ptr<JSBooleanValue> asBoolean();
-  std::shared_ptr<JSDoubleValue> asDouble();
-  std::shared_ptr<JSArrayValue> asArray();
-  std::shared_ptr<JSByteArrayValue> asByteArray();
-  std::shared_ptr<JSMapValue> asMap();
-  std::shared_ptr<JSNullValue> asNull();
+  JSStringValue *asString();
+  JSBooleanValue *asBoolean();
+  JSDoubleValue *asDouble();
+  JSArrayValue *asArray();
+  JSByteArrayValue *asByteArray();
+  JSMapValue *asMap();
+  JSNullValue *asNull();
 
   #ifdef JS_GENERATE_JVM_CONVERT
   virtual jobject toJVM(JNIEnv *env) = 0;
