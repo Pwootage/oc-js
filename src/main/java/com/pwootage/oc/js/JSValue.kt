@@ -85,7 +85,7 @@ sealed class JSValue {
         is ArrayList<*> -> JSArray(obj.map(::fromJava).toTypedArray())
         null -> JSNull
         else -> {
-          println("Unknown fromJava: ${obj::class.java} $obj")
+//          println("Unknown fromJava: ${obj::class.java} $obj")
           fromJSON(gson.toJson(obj))
         }
       }

@@ -7,11 +7,7 @@ import {FileSystem} from "../lib/fs";
   class RequireImpl {
     constructor() {
       this.loadFile = path => {
-        const handle = $bios.bootFS.open(path, 'r');
-        const size = $bios.bootFS.size(path);
-        let src = $bios.bootFS.read(handle, size);
-        $bios.bootFS.close(handle);
-        return new TextDecoder('utf-8').decode(src);
+        return $bios.readFileToString($bios.bootFS, path);
       };
       //Naive but functional for what it's called with
       this.basename = path => {
@@ -34,10 +30,7 @@ import {FileSystem} from "../lib/fs";
       this.loadFile = path => {
         const f = this.fsImpl.open(path);
         if (!f) return null;
-        const size = this.fsImpl.size(path);
-        let src = new TextDecoder('utf-8').decode(
-          f.read(size)
-        );
+        let src = f.readFullyAsString();
         f.close();
         return src;
       };

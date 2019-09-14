@@ -6,7 +6,9 @@ import {EEPROMComponentAPI, FilesystemComponentAPI} from '../os/usr/lib/external
     $bios.crash('No EEPROM');
     return;
   }
-  let bootAddr = eeprom.getData();
+  let bootAddr = new TextDecoder('utf-8').decode(
+    eeprom.getData()
+  );
   let fs = $bios.component.proxy<FilesystemComponentAPI>(bootAddr);
   if (!fs) {
     const filesystems = $bios.component.list('filesystem');
@@ -22,18 +24,16 @@ import {EEPROMComponentAPI, FilesystemComponentAPI} from '../os/usr/lib/external
     }
   }
   if (fs) {
-    eeprom.setData(fs.uuid);
+    eeprom.setData(
+      new TextEncoder('utf-8').encode(fs.uuid)
+    );
   }
   if (!fs) {
     $bios.crash('No bootable medium found.');
     return;
   }
   $bios.bootFS = fs;
-  let handle = fs.open('/kernel.js', 'r');
-  let kernel = '';
-  let read: string;
-  while (read = fs.read(handle, 1024)) kernel += read;
-  fs.close(handle);
+  let kernel = $bios.readFileToString(fs, '/kernel.js');
   $bios.compile('kernel.js', kernel)();
   $bios.crash('Kernel ended execution');
 })();

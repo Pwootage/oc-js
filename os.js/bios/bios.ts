@@ -272,6 +272,12 @@ class BiosApiImpl implements BiosApi {
         $bios.log(`Lines: ${lines.length}, line: ${line}`);
 
         let context = '';
+        if (line - 3 >= 0) {
+          context += lines[line - 3] + '\n';
+        }
+        if (line - 2 >= 0) {
+          context += lines[line - 2] + '\n';
+        }
         if (line - 1 >= 0) {
           context += lines[line - 1] + '\n';
         }
@@ -294,6 +300,33 @@ class BiosApiImpl implements BiosApi {
       args: [message]
     });
   }
+
+  readFileToString(fs: FilesystemComponentAPI, path: string): string {
+    const handle = fs.open(path, 'r');
+    const res = this.readHandleToString(fs, handle);
+    fs.close(handle);
+    return res;
+  }
+
+  readHandleToString(fs: FilesystemComponentAPI, handle: number): string {
+    let buffers = [];
+    let read;
+    while ((read = fs.read(handle, 2048))) {
+      if (read.length == 0) break;
+      buffers.push(read);
+    }
+    let size = 0;
+    for (let i = 0; i < buffers.length; i++) {
+      size += buffers[i].length;
+    }
+    const buffer = new Uint8Array(size);
+    let offset = 0;
+    for (let i = 0; i < buffers.length; i++) {
+      buffer.set(buffers[i], offset);
+      offset += buffers[i].length;
+    }
+    return new TextDecoder('utf-8').decode(buffer);
+  }
 }
 
 let biosImpl = new BiosApiImpl();
@@ -304,15 +337,23 @@ if (!eeprom) {
   $bios.crash('No eeprom!');
 } else {
   // Load eeprom main
-  let eepromSrc = eeprom.get();
+  let eepromSrc = new TextDecoder('utf-8').decode(
+    eeprom.get()
+  );
   let actaullyCompiledSrc = '';
+  let ee;
   try {
     actaullyCompiledSrc = `(function(global, exports, define){${eepromSrc}
     })(global, {});`;
 
-    $bios.compile('eeprom', actaullyCompiledSrc)();
+    ee = $bios.compile('eeprom', actaullyCompiledSrc);
+  } catch (error) {
+    $bios.crash(`Failed to compile eeprom: ${error.prettyMessage || error.message} ${error.stack}`);
+  }
+  try {
+    if (ee) ee();
     throw new Error('EEPROM ended execution');
   } catch (error) {
-    $bios.crash(`Failed to compile/run eeprom: ${error.prettyMessage || error.message} ${error.stack}`);
+    $bios.crash(`Failed to run eeprom: ${error.prettyMessage || error.message} ${error.stack}`);
   }
 }

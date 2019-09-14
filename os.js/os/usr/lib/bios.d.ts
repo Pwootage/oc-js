@@ -19,13 +19,15 @@ declare global {
     computer: BiosComputerApi;
     bootFS: FilesystemComponentAPI;
 
-    signals: EventEmitter
+    signals: EventEmitter;
 
     /** Compiles the script passed as a string */
     compile(filename: string, script: string): () => void;
     /** Does not return. Crashes the machine! */
     crash(msg: string): void;
     log(msg: string): void;
+    readFileToString(fs: FilesystemComponentAPI, path: string): string;
+    readHandleToString(fs: FilesystemComponentAPI, handle: number): string;
   }
 
   interface BiosComponentApi {

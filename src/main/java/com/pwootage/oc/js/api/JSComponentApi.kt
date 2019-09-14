@@ -20,11 +20,18 @@ class JSComponentApi(val machine: Machine, private val connectedFuture: Completa
     }
   }
 
-  fun doc(address: String, method: String): String? = withComponent(address) { comp ->
-    machine.methods(comp.host())[method]?.doc
+  fun doc(address: String, method: String): String? = withComponent(address) {
+    if (it == null) {
+      null
+    } else {
+      machine.methods(it.host())[method]?.doc
+    }
   }
 
-  fun methods(address: String): Map<String, Map<String, Any>> = withComponent(address) {
+  fun methods(address: String): Map<String, Map<String, Any>>? = withComponent(address) {
+    if (it == null) {
+      return@withComponent null
+    }
     val methodsRes = mutableMapOf<String, Map<String, Any>>()
 
     machine.methods(it.host()).forEach { (name, callback) ->
@@ -47,14 +54,13 @@ class JSComponentApi(val machine: Machine, private val connectedFuture: Completa
     }
   }
 
-  private fun <T> withComponent(address: String, f: (Component) -> T): T = connected {
+  private fun <T> withComponent(address: String, f: (Component?) -> T): T? = connected {
     val component = machine.node().network().node(address) as? Component
 
     if (component != null && (component.canBeReachedFrom(machine.node()) || component == machine.node())) {
       f(component)
     } else {
-      // TODO: is this ok? or does this need to be nullable?
-      throw IllegalStateException("Couldn't find component")
+      f(null)
     }
   }
 

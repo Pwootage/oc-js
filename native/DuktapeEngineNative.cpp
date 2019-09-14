@@ -318,23 +318,19 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
 
   switch (ptr->getType()) {
     case JSValue::Type::STRING: {
-      debug_print("Pushing string");
       auto str = ptr->asString()->getValueAsString();
       duk_push_lstring(ctx, str.c_str(), str.length());
       break;
     }
     case JSValue::Type::BOOLEAN: {
-      debug_print("Pushing bool");
       duk_push_boolean(ctx, ptr->asBoolean()->value);
       break;
     }
     case JSValue::Type::DOUBLE: {
-      debug_print("Pushing double");
       duk_push_number(ctx, ptr->asDouble()->value);
       break;
     }
     case JSValue::Type::ARRAY: {
-      debug_print("Pushing array");
       auto &arr = ptr->asArray()->value;
       duk_push_array(ctx);
       for (size_t i = 0; i < arr.size(); i++) {
@@ -344,7 +340,6 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       break;
     }
     case JSValue::Type::BYTE_ARRAY: {
-      debug_print("Pushing byte array");
       auto &buf = ptr->asByteArray()->value;
       duk_push_fixed_buffer(ctx, buf.size());
       void *dukBuff = duk_get_buffer_data(ctx, -1, nullptr);
@@ -354,20 +349,17 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       break;
     }
     case JSValue::Type::MAP: {
-      debug_print("Pushing map");
       std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
       auto &map = ptr->asMap()->value;
       duk_push_object(ctx);
       for (auto &ele : map) {
         std::string key = convert.to_bytes(ele.first);
-        debug_print("Pushing key " + key);
         pushJSValue(ele.second);
         duk_put_prop_lstring(ctx, -2, key.c_str(), key.length());
       }
       break;
     }
     case JSValue::Type::NULL_TYPE: {
-      debug_print("Pushing null");
       duk_push_null(ctx);
       break;
     }

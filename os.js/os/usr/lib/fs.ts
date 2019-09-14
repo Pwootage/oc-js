@@ -1,5 +1,5 @@
 import * as path from './path';
-import {FilesystemComponentAPI} from './externalComponents';
+import {FilesystemComponentAPI} from 'externalComponents';
 
 class File {
   constructor(private fs: FilesystemComponentAPI, private handle: number) {
@@ -11,6 +11,10 @@ class File {
 
   read(count?: number): Uint8Array {
     return this.fs.read(this.handle, count || Math.pow(2, 16));
+  }
+
+  readFullyAsString(): string {
+    return $bios.readHandleToString(this.fs, this.handle);
   }
 
   write(data: Uint8Array): boolean {
