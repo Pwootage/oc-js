@@ -18,7 +18,7 @@ duk_bool_t duk_exec_timeout(void *udata) {
 }
 
 DukTapeEngineNative::DukTapeEngineNative() {
-  this->mainThread = new thread([this] { this->mainThreadFn(); });
+  this->mainThread = thread([this] { this->mainThreadFn(); });
 }
 
 DukTapeEngineNative::~DukTapeEngineNative() {
@@ -28,14 +28,11 @@ DukTapeEngineNative::~DukTapeEngineNative() {
   if (!isDead) {
     debug_print("JS main thread is not dead");
     //this->next(R"({"state": "error", "value": "kill"})");
-    pthread_cancel(this->mainThread->native_handle());
+    pthread_cancel(this->mainThread.native_handle());
   }
-  if (this->mainThread != nullptr) {
-    debug_print("JS waiting for main thread");
-    this->mainThread->join();
-  }
-  delete this->mainThread;
-  this->mainThread = nullptr;
+  debug_print("JS waiting for main thread");
+  this->mainThread.join();
+
   duk_destroy_heap(this->context);
   this->context = nullptr;
   debug_print("JS main thread kill complete");

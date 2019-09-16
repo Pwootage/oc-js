@@ -36,7 +36,7 @@ private:
   JSValuePtr convertObjectToJSValue(duk_idx_t idx);
 
   // Thread stuff
-  std::thread *mainThread;
+  std::thread mainThread;
   void mainThreadFn();
   JSValuePtr yield(const JSValuePtr& output);
 
