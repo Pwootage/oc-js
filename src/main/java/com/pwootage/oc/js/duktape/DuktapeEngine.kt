@@ -4,8 +4,6 @@ import com.pwootage.oc.js.*
 
 class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
   private var duktapeEngineNative: Long = 0
-  private var _maxMemory: Int = 0
-  private var allocatedMemory: Int = 0
   private var _started = false
 
   // Initialize on startup
@@ -17,12 +15,12 @@ class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
   }
 
   override fun setMaxMemory(max: Int) {
-    _maxMemory = max
+    native_set_max_memory(max)
   }
 
-  override val maxMemory get() = _maxMemory
+  override val maxMemory get() = native_get_max_memory()
 
-  override val usedMemory get() = allocatedMemory
+  override val usedMemory get() = native_get_available_memory()
 
   override val started get() = _started
 
@@ -120,6 +118,34 @@ class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
         arch.biosInternalAPI.log(args.arrayVal(0).asString ?: "")
         res["state"] = success
       }
+      "computer.address" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.address())
+      }
+      "computer.tmpAddress" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.tmpAddress())
+      }
+      "computer.freeMemory" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.freeMemory())
+      }
+      "computer.totalMemory" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.totalMemory())
+      }
+      "computer.energy" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.energy())
+      }
+      "computer.maxEnergy" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.maxEnergy())
+      }
+      "computer.uptime" -> {
+        res["state"] = success
+        res["value"] = JSValue.fromJava(arch.computerAPI.uptime())
+      }
       "component.list" -> {
         val list = arch.componentAPI.list(args.arrayVal(0).asString ?: "")
         res["state"] = success
@@ -161,4 +187,10 @@ class DuktapeEngine(val arch: DuktapeArchitecture) : JSEngine {
   private external fun native_destroy(): Unit
 
   private external fun native_next(next: JSValue): JSValue
+
+  private external fun native_set_max_memory(max: Int)
+
+  private external fun native_get_max_memory(): Int
+
+  private external fun native_get_available_memory(): Int
 }

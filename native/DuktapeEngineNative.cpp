@@ -161,6 +161,9 @@ duk_ret_t DukTapeEngineNative::__yield(duk_context *ctx) {
   }
   duk_pop(ctx);
 
+
+  duk_gc(ctx, 0);
+
   // pull out args
   JSValuePtr args = native->convertObjectToJSValue(0);
 

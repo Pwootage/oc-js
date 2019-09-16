@@ -23,6 +23,12 @@ class OS {
 
     $bios.signals.on('signal', (sig) => {
       if (sig.name == 'key_down') {
+        const free = $bios.computer.freeMemory();
+        const total = $bios.computer.totalMemory();
+        const used = total - free;
+
+        $bios.log(`Used ${used} Free ${free} Total ${total}`);
+
         if (sig.args[2] == 208) { //down arrow
           this.term.scroll(1);
         } else if (sig.args[2] == 200) { //up arrow

@@ -1,6 +1,5 @@
 import {EEPROMComponentAPI, FilesystemComponentAPI, GPUComponent} from '../os/usr/lib/externalComponents';
 import {
-  CompileResult,
   BiosYieldResult,
   BiosYield, __yieldFunction, __compileFunction
 } from './biosDefinitions';

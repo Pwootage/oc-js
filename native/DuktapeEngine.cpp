@@ -65,6 +65,32 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject 
   }
 }
 
+JNIEXPORT void JNICALL
+Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1set_1max_1memory(JNIEnv *env, jobject self, jint max) {
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
+  if (engine != nullptr) {
+    engine->setMaxMemory(max);
+  }
+}
+
+JNIEXPORT jint JNICALL
+Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1get_1max_1memory(JNIEnv *env, jobject self) {
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
+  if (engine != nullptr) {
+    return engine->getMaxMemory();
+  }
+  return 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1get_1available_1memory(JNIEnv *env, jobject self) {
+  DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
+  if (engine != nullptr) {
+    return engine->getAllocatedMemory();
+  }
+  return 0;
+}
+
 
 void InitializeDuktape(JNIEnv *env, jobject obj) {
   JSValue::jvmInit(env);

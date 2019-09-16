@@ -4,10 +4,6 @@ export interface ComponentInvokeParams {
   args: any[]
 }
 
-export interface CompileResult {
-  state: 'success' | 'error';
-}
-
 export type BiosYieldParams = [ComponentInvokeParams] | any[];
 export type BiosYield = BiosYieldCall | BiosYieldSleep;
 export type BiosCallName =
