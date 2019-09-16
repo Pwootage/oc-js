@@ -38,19 +38,19 @@ DukTapeEngineNative::~DukTapeEngineNative() {
   debug_print("JS main thread kill complete");
 }
 
-future<JSValuePtr> DukTapeEngineNative::next(JSValuePtr next) {
-  future<JSValuePtr> res;
+future<OCJS::JSValuePtr> DukTapeEngineNative::next(OCJS::JSValuePtr next) {
+  future<OCJS::JSValuePtr> res;
   {
     lock_guard<mutex> lock(this->executionMutex);
 
     if (this->deadResult) {
-      promise<JSValuePtr> promise;
+      promise<OCJS::JSValuePtr> promise;
       promise.set_value(*this->deadResult);
       return promise.get_future();
     }
 
     this->nextInput = make_optional(next);
-    this->outputPromise = make_optional(promise<JSValuePtr>());
+    this->outputPromise = make_optional(promise<OCJS::JSValuePtr>());
     res = this->outputPromise->get_future();
   }
   this->engineWait.notify_one();
@@ -98,13 +98,13 @@ void DukTapeEngineNative::mainThreadFn() {
 //  }
 
   // First yield to get code to execute
-  std::unordered_map<std::u16string, JSValuePtr> map;
-  map[u"type"] = JSValuePtr(new JSStringValue("__bios__"));
-  JSValuePtr src = this->yield(JSValuePtr(new JSMapValue(map)));
-  JSValuePtr res;
-  if (src->getType() != JSValue::Type::STRING) {
+  std::unordered_map<std::u16string, OCJS::JSValuePtr> map;
+  map[u"type"] = OCJS::JSValuePtr(new OCJS::JSStringValue("__bios__"));
+  OCJS::JSValuePtr src = this->yield(OCJS::JSValuePtr(new OCJS::JSMapValue(map)));
+  OCJS::JSValuePtr res;
+  if (src->getType() != OCJS::JSValue::Type::STRING) {
     // todo: throw java exception
-    res = JSValuePtr(new JSStringValue("must provide a string for the first yield"));
+    res = OCJS::JSValuePtr(new OCJS::JSStringValue("must provide a string for the first yield"));
   } else {
     res = this->compileAndExecute(src->asString()->getValueAsString(), "__bios__");
   }
@@ -121,7 +121,7 @@ void DukTapeEngineNative::mainThreadFn() {
   this->engineLock.unlock();
 }
 
-JSValuePtr DukTapeEngineNative::yield(const JSValuePtr &output) {
+OCJS::JSValuePtr DukTapeEngineNative::yield(const OCJS::JSValuePtr &output) {
   this->outputPromise->set_value(output);
   this->nextInput = nullopt;
   this->outputPromise = nullopt;
@@ -132,16 +132,16 @@ JSValuePtr DukTapeEngineNative::yield(const JSValuePtr &output) {
   return *this->nextInput;
 }
 
-JSValuePtr DukTapeEngineNative::compileAndExecute(const string &src, const string &filename) {
+OCJS::JSValuePtr DukTapeEngineNative::compileAndExecute(const string &src, const string &filename) {
   duk_push_string(this->context, src.c_str());
   duk_push_string(this->context, filename.c_str());
   if (duk_pcompile(this->context, 0) != 0) {
-    return JSValuePtr(new JSStringValue(
+    return OCJS::JSValuePtr(new OCJS::JSStringValue(
       "compile failed: " + string(duk_safe_to_string(this->context, -1))
     ));
   }
   if (duk_pcall(this->context, 0) != 0) {
-    return JSValuePtr(new JSStringValue(
+    return OCJS::JSValuePtr(new OCJS::JSStringValue(
       "pcall failed: " + string(duk_safe_to_string(this->context, -1))
     ));
   }
@@ -163,10 +163,10 @@ duk_ret_t DukTapeEngineNative::__yield(duk_context *ctx) {
   duk_gc(ctx, 0);
 
   // pull out args
-  JSValuePtr args = native->convertObjectToJSValue(0);
+  OCJS::JSValuePtr args = native->convertObjectToJSValue(0);
 
   // yield
-  JSValuePtr res = native->yield(args);
+  OCJS::JSValuePtr res = native->yield(args);
 
   // Return
   native->pushJSValue(res);
@@ -287,7 +287,7 @@ void DukTapeEngineNative::engine_fatal(void *usrData, const char *msg) {
       i = ' ';
     }
   }
-  JSValuePtr deadResult = JSValuePtr(new JSStringValue(R"({"state": "error", "value": "kill: )" + smsg + R"("})"));
+  OCJS::JSValuePtr deadResult = OCJS::JSValuePtr(new OCJS::JSStringValue(R"({"state": "error", "value": "kill: )" + smsg + R"("})"));
   native->deadResult = make_optional(deadResult);
   if (native->outputPromise.has_value()) {
     native->outputPromise->set_value(deadResult);
@@ -314,24 +314,24 @@ size_t DukTapeEngineNative::getAllocatedMemory() const {
   return allocatedMemory;
 }
 
-void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
+void DukTapeEngineNative::pushJSValue(const OCJS::JSValuePtr &ptr) {
   duk_context *ctx = this->context;
 
   switch (ptr->getType()) {
-    case JSValue::Type::STRING: {
+    case OCJS::JSValue::Type::STRING: {
       auto str = ptr->asString()->getValueAsString();
       duk_push_lstring(ctx, str.c_str(), str.length());
       break;
     }
-    case JSValue::Type::BOOLEAN: {
+    case OCJS::JSValue::Type::BOOLEAN: {
       duk_push_boolean(ctx, ptr->asBoolean()->value);
       break;
     }
-    case JSValue::Type::DOUBLE: {
+    case OCJS::JSValue::Type::DOUBLE: {
       duk_push_number(ctx, ptr->asDouble()->value);
       break;
     }
-    case JSValue::Type::ARRAY: {
+    case OCJS::JSValue::Type::ARRAY: {
       auto &arr = ptr->asArray()->value;
       duk_push_array(ctx);
       for (size_t i = 0; i < arr.size(); i++) {
@@ -340,7 +340,7 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       }
       break;
     }
-    case JSValue::Type::BYTE_ARRAY: {
+    case OCJS::JSValue::Type::BYTE_ARRAY: {
       auto &buf = ptr->asByteArray()->value;
       duk_push_fixed_buffer(ctx, buf.size());
       void *dukBuff = duk_get_buffer_data(ctx, -1, nullptr);
@@ -349,7 +349,7 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       duk_remove(ctx, -2);
       break;
     }
-    case JSValue::Type::MAP: {
+    case OCJS::JSValue::Type::MAP: {
       std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
       auto &map = ptr->asMap()->value;
       duk_push_object(ctx);
@@ -360,7 +360,7 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
       }
       break;
     }
-    case JSValue::Type::NULL_TYPE: {
+    case OCJS::JSValue::Type::NULL_TYPE: {
       duk_push_null(ctx);
       break;
     }
@@ -370,24 +370,24 @@ void DukTapeEngineNative::pushJSValue(const JSValuePtr &ptr) {
   }
 }
 
-JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
+OCJS::JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
   duk_context *ctx = this->context;
   duk_int_t type = duk_get_type(ctx, idx);
 
   switch (type) {
     case DUK_TYPE_BOOLEAN: {
       duk_bool_t v = duk_require_boolean(ctx, idx);
-      return JSValuePtr(new JSBooleanValue(v));
+      return OCJS::JSValuePtr(new OCJS::JSBooleanValue(v));
     }
     case DUK_TYPE_NUMBER: {
       duk_double_t d = duk_require_number(ctx, idx);
-      return JSValuePtr(new JSDoubleValue(d));
+      return OCJS::JSValuePtr(new OCJS::JSDoubleValue(d));
     }
     case DUK_TYPE_STRING: {
       duk_size_t len = 0;
       const char *chars = duk_require_lstring(ctx, idx, &len);
       std::string str(chars, len);
-      return JSValuePtr(new JSStringValue(str));
+      return OCJS::JSValuePtr(new OCJS::JSStringValue(str));
     }
     case DUK_TYPE_BUFFER:
     case DUK_TYPE_OBJECT : {
@@ -397,21 +397,21 @@ JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
         std::vector<uint8_t> resBuff;
         resBuff.resize(size);
         memcpy(resBuff.data(), buffData, size);
-        return JSValuePtr(new JSByteArrayValue(resBuff));
+        return OCJS::JSValuePtr(new OCJS::JSByteArrayValue(resBuff));
       } else if (duk_is_array(ctx, idx)) {
         duk_size_t len = duk_get_length(ctx, idx);
         if (len > MAX_OBJ_KEYS) len = MAX_OBJ_KEYS;
-        std::vector<JSValuePtr> resVec;
+        std::vector<OCJS::JSValuePtr> resVec;
         resVec.resize(len);
         for (size_t i = 0; i < len; i++) {
           duk_get_prop_index(ctx, idx, i);
           resVec[i] = convertObjectToJSValue(-1);
           duk_pop(ctx);
         }
-        return JSValuePtr(new JSArrayValue(resVec));
+        return OCJS::JSValuePtr(new OCJS::JSArrayValue(resVec));
       } else {
         std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-        std::unordered_map<std::u16string, JSValuePtr> res;
+        std::unordered_map<std::u16string, OCJS::JSValuePtr> res;
         // is an object
         size_t safety = 0;
         duk_enum(ctx, idx, DUK_ENUM_OWN_PROPERTIES_ONLY);
@@ -425,7 +425,7 @@ JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
           duk_pop_2(ctx);
         }
         duk_pop(ctx);
-        return JSValuePtr(new JSMapValue(res));
+        return OCJS::JSValuePtr(new OCJS::JSMapValue(res));
       }
     }
     case DUK_TYPE_POINTER:
@@ -434,6 +434,6 @@ JSValuePtr DukTapeEngineNative::convertObjectToJSValue(duk_idx_t idx) {
     case DUK_TYPE_NULL:
     case DUK_TYPE_NONE:
     default:
-      return JSValuePtr(new JSNullValue());
+      return OCJS::JSValuePtr(new OCJS::JSNullValue());
   }
 }

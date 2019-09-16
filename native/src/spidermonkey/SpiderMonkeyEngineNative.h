@@ -5,14 +5,7 @@
 #ifndef OCJS_SPIDERMONKEYENGINENATIVE_H
 #define OCJS_SPIDERMONKEYENGINENATIVE_H
 
-#include <jni.h>
-#include <memory>
-#include <functional>
-#include <thread>
-#include <future>
-#include <string>
-#include <mutex>
-#include <optional>
+#include "../JSEngine.hpp"
 #include <jsapi.h>
 
 /**
@@ -20,37 +13,36 @@
  *
  * We could store these as a bunch of 'long' in the Java class, but that also leads to issues
  * */
-class SpiderMonkeyEngineNative {
+class SpiderMonkeyEngineNative : public JSEngine {
 public:
   SpiderMonkeyEngineNative();
-  ~SpiderMonkeyEngineNative();
-
-  std::thread mainThread;
-
-  std::future<std::u16string> next(std::u16string next);
-
+  ~SpiderMonkeyEngineNative() override;
+  std::future<OCJS::JSValuePtr> next(OCJS::JSValuePtr next) override;
   static constexpr size_t MAX_STR_SIZE = 1024 * 1024;
-
-  static void debug_print(const std::u16string& str);
+  size_t getMaxMemory() const override;
+  void setMaxMemory(size_t maxMemory) override;
+  size_t getAllocatedMemory() const override;
 private:
   // JS context stuff
-  JSContext *context;
-  JS::RootedObject *globalObject;
+  JSContext *context = nullptr;
+  JS::RootedObject *globalObject = nullptr;
 
   //JS engine stuff
-  std::u16string compileAndExecute(std::u16string src, std::u16string filename);
-  //  JS::RootedObject convertException();
+  OCJS::JSValuePtr compileAndExecute(const std::u16string &src, const std::u16string &filename);
+  bool getJSValue(const OCJS::JSValuePtr &ptr, JS::MutableHandleValue vp);
+  OCJS::JSValuePtr convertObjectToJSValue(const JS::HandleValue &val);
 
   // Thread stuff
+  std::thread mainThread;
   void mainThreadFn();
-  std::u16string yield(const std::u16string& output);
+  OCJS::JSValuePtr yield(const OCJS::JSValuePtr &output);
 
   std::mutex executionMutex;
   std::condition_variable engineWait;
   std::unique_lock<std::mutex> engineLock;
-  std::optional<std::u16string> nextInput = std::nullopt;
-  std::optional<std::promise<std::u16string>> outputPromise = std::make_optional(std::promise<std::u16string>());
-  std::optional<std::u16string> deadResult = std::nullopt;
+  std::optional<OCJS::JSValuePtr> nextInput = std::nullopt;
+  std::optional<std::promise<OCJS::JSValuePtr>> outputPromise = std::make_optional(std::promise<OCJS::JSValuePtr>());
+  std::optional<OCJS::JSValuePtr> deadResult = std::nullopt;
 
   bool shouldKill{false};
   bool isDead{false};
@@ -65,6 +57,7 @@ private:
   static bool interruptCallback(JSContext *ctx);
 
   // Convenience
+  static void debug_print(const std::u16string& str);
   static std::u16string getU16String(JSContext *ctx, const JS::HandleValue &handle);
   static std::string getU8String(JSContext *ctx, const JS::HandleValue &handle);
 };

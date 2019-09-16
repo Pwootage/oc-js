@@ -2,6 +2,8 @@ package com.pwootage.oc.js
 
 import com.pwootage.oc.js.duktape.DuktapeArchitecture
 import com.pwootage.oc.js.duktape.DuktapeStatic
+import com.pwootage.oc.js.spidermonkey.SpiderMonkeyArchitecture
+import com.pwootage.oc.js.spidermonkey.SpiderMonkeyStatic
 import li.cil.oc.api.Items
 import li.cil.oc.api.Machine
 import li.cil.oc.api.FileSystem
@@ -50,12 +52,12 @@ object OCJS {
       e.printStackTrace()
       throw e
     }
-//    SpiderMonkeyStatic.initialize()
+    SpiderMonkeyStatic.initialize()
     DuktapeStatic.initialize()
     log.info("Loaded ocjs natives")
 
     Machine.add(DuktapeArchitecture::class.java)
-//    Machine.add(SpiderMonkeyArchitecture::class.java)
+    Machine.add(SpiderMonkeyArchitecture::class.java)
 
     Items.registerEEPROM("EEPROM (jsboot)", StaticJSSrc.loadSrc("/assets/oc-js/bios/bootloader.js").toByteArray(), null, true)
 

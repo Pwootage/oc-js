@@ -21,21 +21,13 @@ declare global {
     encoding: string;
   };
 
-  interface TextEncodeOptions {
-    stream?: boolean;
-  }
-
-  interface TextDecoderOptions {
-    stream?: boolean;
-  }
-
   interface TextEncoder {
     readonly encoding: string;
-    encode(input?: string,ions?: TextEncodeOptions): Uint8Array;
+    encode(input?: string): Uint8Array;
   }
 
   interface TextDecoder {
     readonly encoding: string;
-    decode(input?: Uint8Array, options?: TextDecoderOptions): string;
+    decode(input?: Uint8Array): string;
   }
 }

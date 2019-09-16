@@ -6,9 +6,14 @@
 #include <unordered_map>
 #include <memory>
 
+
 #ifdef JS_GENERATE_JVM_CONVERT
+
 #include <jni.h>
+
 #endif
+
+namespace OCJS {
 
 struct JSValue;
 struct JSStringValue;
@@ -54,7 +59,7 @@ struct JSValue {
 
 struct JSStringValue : public JSValue {
   explicit JSStringValue(std::u16string value);
-  explicit JSStringValue(const std::string& value);
+  explicit JSStringValue(const std::string &value);
   Type getType() override;
   //TODO: helper methods for to/from u8 (since we store it as u16)
 
@@ -74,7 +79,7 @@ struct JSBooleanValue : public JSValue {
   bool value = false;
 };
 
-struct JSDoubleValue: public JSValue {
+struct JSDoubleValue : public JSValue {
   explicit JSDoubleValue(double value);
   Type getType() override;
   #ifdef JS_GENERATE_JVM_CONVERT
@@ -103,7 +108,6 @@ struct JSByteArrayValue : public JSValue {
 };
 
 
-
 struct JSMapValue : public JSValue {
   explicit JSMapValue(std::unordered_map<std::u16string, JSValuePtr> value);
   Type getType() override;
@@ -122,5 +126,6 @@ struct JSNullValue : public JSValue {
   // no value
 };
 
+}
 
 #endif //OCJS_JSVALUE_HPP

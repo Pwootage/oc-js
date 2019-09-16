@@ -6,6 +6,9 @@
 #include <js/JSON.h>
 #include <js/CompilationAndEvaluation.h>
 #include <js/SourceText.h>
+#include <js/ArrayBuffer.h>
+#include <js/MemoryFunctions.h>
+#include <jsfriendapi.h>
 
 #include <cstdio>
 #include <cstring>
@@ -49,26 +52,27 @@ SpiderMonkeyEngineNative::~SpiderMonkeyEngineNative() {
   if (!isDead) {
     debug_print(u"JS main thread is not dead");
     JS_RequestInterruptCallback(this->context);
-    this->next(uR"({"state": "error", "value": "kill"})");
+    this->next(OCJS::JSValuePtr(new OCJS::JSNullValue));
+    JS_RequestInterruptCallback(this->context);
   }
   debug_print(u"JS waiting for main thread");
   this->mainThread.join();
   debug_print(u"JS main thread kill complete");
 }
 
-future<u16string> SpiderMonkeyEngineNative::next(u16string next) {
-  future<u16string> res;
+future<OCJS::JSValuePtr> SpiderMonkeyEngineNative::next(OCJS::JSValuePtr next) {
+  future<OCJS::JSValuePtr> res;
   {
     lock_guard<mutex> lock(this->executionMutex);
 
     if (this->deadResult) {
-      promise<u16string> promise;
+      promise<OCJS::JSValuePtr> promise;
       promise.set_value(*this->deadResult);
       return promise.get_future();
     }
 
     this->nextInput = make_optional(next);
-    this->outputPromise = make_optional(promise<u16string>());
+    this->outputPromise = make_optional(promise<OCJS::JSValuePtr>());
     res = this->outputPromise->get_future();
   }
   this->engineWait.notify_one();
@@ -134,8 +138,17 @@ void SpiderMonkeyEngineNative::mainThreadFn() {
     JS_SetContextPrivate(this->context, this);
 
     // First yield to get code to execute
-    u16string src = this->yield(u"{\"type\": \"__bios__\"}");
-    u16string res = this->compileAndExecute(src, u"__bios__");
+    std::unordered_map<std::u16string, OCJS::JSValuePtr> map;
+    map[u"type"] = OCJS::JSValuePtr(new OCJS::JSStringValue("__bios__"));
+    OCJS::JSValuePtr src = this->yield(OCJS::JSValuePtr(new OCJS::JSMapValue(map)));
+
+    OCJS::JSValuePtr res;
+    if (src->getType() != OCJS::JSValue::Type::STRING) {
+      // todo: throw java exception
+      res = OCJS::JSValuePtr(new OCJS::JSStringValue("must provide a string for the first yield"));
+    } else {
+      res = this->compileAndExecute(src->asString()->value, u"__bios__");
+    }
     this->deadResult = make_optional(res);
     if (this->outputPromise.has_value()) {
       this->outputPromise->set_value(res);
@@ -154,7 +167,7 @@ void SpiderMonkeyEngineNative::mainThreadFn() {
   this->engineLock.unlock();
 }
 
-u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
+OCJS::JSValuePtr SpiderMonkeyEngineNative::yield(const OCJS::JSValuePtr &output) {
   this->outputPromise->set_value(output);
   this->nextInput = nullopt;
   this->outputPromise = nullopt;
@@ -165,7 +178,7 @@ u16string SpiderMonkeyEngineNative::yield(const u16string &output) {
   return *this->nextInput;
 }
 
-u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string filename) {
+OCJS::JSValuePtr SpiderMonkeyEngineNative::compileAndExecute(const u16string &src, const u16string &filename) {
   JSAutoRealm ar(this->context, *this->globalObject);
 
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
@@ -176,149 +189,36 @@ u16string SpiderMonkeyEngineNative::compileAndExecute(u16string src, u16string f
   JS::SourceText<char16_t> srcBuff;
   if (!srcBuff.init(this->context, src.c_str(), src.length(), JS::SourceOwnership::Borrowed)) {
     // TODO: throw error
-    return u"src buff failed to init";
+    return OCJS::JSValuePtr(new OCJS::JSStringValue(u"src buff failed to init"));
   }
 
   JS::RootedValue res(this->context);
   if (!JS::Evaluate(this->context, compileOpts, srcBuff, &res)) {
     // TODO: throw error
-    return u"evaluate failed";
+    return OCJS::JSValuePtr(new OCJS::JSStringValue(u"evaluate failed"));
   }
 
-  //TODO: catch js exception somehow
-  JS::RootedString resStr(this->context, JS::ToString(this->context, res));
-
-  if (!resStr) {
-    // TODO: throw error
-    return u"Result was not a string";
-  }
-
-  // Usual return type: {"type": "exec_cmd", "result": <whatever it returned>}
-
-  size_t len = JS_GetStringLength(resStr);
-  if (len > MAX_STR_SIZE) return u"string was too long";// TODO: throw error
-
-  u16string resu16;
-  resu16.resize(len);
-  if (!JS_CopyStringChars(this->context, mozilla::Range<char16_t>(resu16.data(), resu16.length()), resStr)) {
-    return u"Failed to copy string chars"; // todo: throw error
-  }
-  return resu16;
+  return convertObjectToJSValue(res);
 }
-
-//Local <Object> SpiderMonkeyEngineNative::convertException(Local <Context> context, TryCatch &tryCatch) {
-//  EscapableHandleScope handle_scope(isolate);
-//  Local <Message> message = tryCatch.Message();
-//  if (message.IsEmpty()) {
-//    return handle_scope.Escape(Object::New(isolate));
-//  }
-//
-//  Local <Object> result = Object::New(isolate);
-//  result->Set(
-//    context,
-//    String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(),
-//    String::NewFromUtf8(isolate, "error", NewStringType::kNormal).ToLocalChecked()
-//  ).ToChecked();
-//  result->Set(
-//    context,
-//    String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
-//    message->GetScriptResourceName()
-//  ).ToChecked();
-//  MaybeLocal <String> sourceLine = message->GetSourceLine(context);
-//  if (!sourceLine.IsEmpty() && !sourceLine.IsEmpty() && !sourceLine.ToLocalChecked().IsEmpty()) {
-//    result->Set(
-//      context,
-//      String::NewFromUtf8(isolate, "src", NewStringType::kNormal).ToLocalChecked(),
-//      sourceLine.ToLocalChecked()
-//    ).ToChecked();
-//  }
-//  Maybe<int> line = message->GetLineNumber(context);
-//  if (line.IsJust()) {
-//    result->Set(
-//      context,
-//      String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
-//      Integer::New(isolate, line.FromJust())
-//    ).ToChecked();
-//  }
-//  Maybe<int> startCol = message->GetStartColumn(context);
-//  if (startCol.IsJust()) {
-//    result->Set(
-//      context,
-//      String::NewFromUtf8(isolate, "start", NewStringType::kNormal).ToLocalChecked(),
-//      Integer::New(isolate, startCol.FromJust())
-//    ).ToChecked();
-//  }
-//  Maybe<int> endCol = message->GetStartColumn(context);
-//  if (endCol.IsJust()) {
-//    result->Set(
-//      context,
-//      String::NewFromUtf8(isolate, "end", NewStringType::kNormal).ToLocalChecked(),
-//      Integer::New(isolate, endCol.FromJust())
-//    ).ToChecked();
-//  }
-//
-//  Local <StackTrace> stackTrace = message->GetStackTrace();
-//  if (!stackTrace.IsEmpty()) {
-//    Local <Array> stackArray = Array::New(isolate, stackTrace->GetFrameCount());
-//    for (uint32_t i = 0; i < static_cast<uint32_t>(stackTrace->GetFrameCount()); i++) {
-//      Local <StackFrame> frame = stackTrace->GetFrame(i);
-//      Local <Object> resFrame = Object::New(isolate);
-//      resFrame->Set(
-//        context,
-//        String::NewFromUtf8(isolate, "file", NewStringType::kNormal).ToLocalChecked(),
-//        frame->GetScriptName()
-//      ).ToChecked();
-//      resFrame->Set(
-//        context,
-//        String::NewFromUtf8(isolate, "function", NewStringType::kNormal).ToLocalChecked(),
-//        frame->GetFunctionName()
-//      ).ToChecked();
-//      resFrame->Set(
-//        context,
-//        String::NewFromUtf8(isolate, "line", NewStringType::kNormal).ToLocalChecked(),
-//        Integer::New(isolate, frame->GetLineNumber())
-//      ).ToChecked();
-//      resFrame->Set(
-//        context,
-//        String::NewFromUtf8(isolate, "col", NewStringType::kNormal).ToLocalChecked(),
-//        Integer::New(isolate, frame->GetColumn())
-//      ).ToChecked();
-//      stackArray->Set(context, i, resFrame).ToChecked();
-//    }
-//
-//    result->Set(
-//      context,
-//      String::NewFromUtf8(isolate, "stacktrace", NewStringType::kNormal).ToLocalChecked(),
-//      stackArray
-//    ).ToChecked();
-//  }
-//
-//  result->Set(
-//    context,
-//    String::NewFromUtf8(isolate, "origin", NewStringType::kNormal).ToLocalChecked(),
-//    message->GetScriptOrigin().ResourceName()
-//  ).ToChecked();
-//  result->Set(
-//    context,
-//    String::NewFromUtf8(isolate, "message", NewStringType::kNormal).ToLocalChecked(),
-//    message->Get()
-//  ).ToChecked();
-//  return handle_scope.Escape(result);
-//}
 
 bool SpiderMonkeyEngineNative::__yield(JSContext *ctx, unsigned argc, JS::Value *vp) {
   // Grab the engine
   auto *native = static_cast<SpiderMonkeyEngineNative *>(JS_GetContextPrivate(ctx));
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
+  JS::RootedValue val(ctx, args[0]);
+
   // pull out args
-  u16string json = getU16String(ctx, args[0]);
+  OCJS::JSValuePtr json = native->convertObjectToJSValue(val);
 
   // yield
-  u16string res = native->yield(json);
+  OCJS::JSValuePtr res = native->yield(json);
 
   // Return
-  args.rval().setString(JS_NewUCStringCopyN(ctx, res.c_str(), res.length()));
+  if (!native->getJSValue(res, args.rval())) {
+    JS_ReportErrorASCII(ctx, "Failed to convert JS");
+    return false;
+  }
   return true;
 }
 
@@ -398,4 +298,226 @@ void SpiderMonkeyEngineNative::debug_print(const std::u16string &str) {
   string fileString = convert.to_bytes(str);
   printf("%s\n", fileString.c_str());
   fflush(stdout);
+}
+
+size_t SpiderMonkeyEngineNative::getMaxMemory() const {
+  return 0;
+}
+
+void SpiderMonkeyEngineNative::setMaxMemory(size_t maxMemory) {
+
+}
+
+size_t SpiderMonkeyEngineNative::getAllocatedMemory() const {
+  return 0;
+}
+
+bool SpiderMonkeyEngineNative::getJSValue(const OCJS::JSValuePtr &ptr, JS::MutableHandleValue vp) {
+  JSContext *ctx = this->context;
+
+  switch (ptr->getType()) {
+    case OCJS::JSValue::Type::STRING: {
+      auto &str = ptr->asString()->value;
+      vp.setString(JS_NewUCStringCopyN(ctx, str.c_str(), str.length()));
+      return true;
+    }
+    case OCJS::JSValue::Type::BOOLEAN: {
+      vp.setBoolean(ptr->asBoolean()->value);
+      return true;
+    }
+    case OCJS::JSValue::Type::DOUBLE: {
+      vp.setDouble(ptr->asDouble()->value);
+      return true;
+    }
+    case OCJS::JSValue::Type::ARRAY: {
+      auto &arr = ptr->asArray()->value;
+
+      JS::RootedObject arrayObj(ctx, JS_NewArrayObject(ctx, arr.size()));
+
+      for (size_t i = 0; i < arr.size(); i++) {
+        JS::RootedValue ele(ctx);
+        //TODO: am I ok to return false here?
+        if (!getJSValue(arr[i], &ele) || !JS_SetElement(ctx, arrayObj, i, ele)) {
+          return false;
+        }
+      }
+
+      vp.setObjectOrNull(arrayObj.get());
+      return true;
+    }
+    case OCJS::JSValue::Type::BYTE_ARRAY: {
+      auto &buf = ptr->asByteArray()->value;
+      JS::RootedObject arrayBuff(ctx, JS::NewArrayBuffer(ctx, buf.size()));
+      {
+        bool shared = false;
+        JS::AutoCheckCannotGC noGC;
+        void *data = JS::GetArrayBufferData(arrayBuff, &shared, noGC);
+        memcpy(data, buf.data(), buf.size());
+      }
+
+      vp.setObjectOrNull(JS_NewUint8ArrayWithBuffer(ctx, arrayBuff, 0, -1));
+      return true;
+    }
+    case OCJS::JSValue::Type::MAP: {
+      auto &map = ptr->asMap()->value;
+      JS::RootedObject obj(ctx, JS_NewObject(ctx, nullptr));
+
+      std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+
+      for (auto &ele : map) {
+        JS::RootedValue val(ctx);
+        //TODO: am I ok to return false here?
+        if (!getJSValue(ele.second, &val) || !JS_SetUCProperty(ctx, obj, ele.first.c_str(), ele.first.length(), val)) {
+          return false;
+        }
+      }
+
+      vp.setObjectOrNull(obj);
+      return true;
+    }
+    case OCJS::JSValue::Type::NULL_TYPE: {
+      vp.setNull();
+      return true;
+    }
+    default: {
+      debug_print(u"Getting nothing?!?");
+      vp.setNull();
+      return false;
+    }
+  }
+}
+
+OCJS::JSValuePtr SpiderMonkeyEngineNative::convertObjectToJSValue(const JS::HandleValue &val) {
+  JSContext *ctx = this->context;
+
+  JSType type = JS_TypeOfValue(ctx, val);
+
+
+  switch (type) {
+    case JSTYPE_OBJECT: {
+      JS::RootedObject obj(ctx, val.toObjectOrNull());
+
+      // order matters, since an array buffer *is* an array, at least in some situations
+      if (JS_IsArrayBufferViewObject(obj)) {
+        size_t size = JS_GetArrayBufferViewByteLength(obj);
+        JS::AutoCheckCannotGC noGC;
+        bool isShared = false;
+        void *data = JS_GetArrayBufferViewData(obj, &isShared, noGC);
+
+        std::vector<uint8_t> resBuff;
+        resBuff.resize(size);
+        memcpy(resBuff.data(), data, size);
+        return OCJS::JSValuePtr(new OCJS::JSByteArrayValue(resBuff));
+      }
+
+      if (JS_IsTypedArrayObject(obj)) {
+        size_t size = JS_GetTypedArrayByteLength(obj);
+        JS::AutoCheckCannotGC noGC;
+        bool isShared = false;
+        uint8_t *data = JS_GetUint8ArrayData(obj, &isShared, noGC);
+
+        std::vector<uint8_t> resBuff;
+        resBuff.resize(size);
+        memcpy(resBuff.data(), data, size);
+        return OCJS::JSValuePtr(new OCJS::JSByteArrayValue(resBuff));
+      }
+
+      if (JS::IsArrayBufferObject(obj)) {
+        uint32_t len = 0;
+        bool isShared = false;
+        unsigned char *data = nullptr;
+        JS::GetArrayBufferLengthAndData(obj, &len, &isShared, &data);
+
+        std::vector<uint8_t> resBuff;
+        resBuff.resize(len);
+        memcpy(resBuff.data(), data, len);
+        return OCJS::JSValuePtr(new OCJS::JSByteArrayValue(resBuff));
+      }
+
+      JS::IsArrayAnswer isArray = JS::IsArrayAnswer::NotArray;
+      if (!JS::IsArray(ctx, obj, &isArray)) {
+        return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to check if is array (this shouldn't happen!)"));
+      }
+      if (isArray == JS::IsArrayAnswer::Array) {
+        uint32_t len = 0;
+        if (!JS_GetArrayLength(ctx, obj, &len)) {
+          return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to get array length (this shouldn't happen!)"));
+        }
+        std::vector<OCJS::JSValuePtr> resVec;
+        resVec.resize(len);
+        for (size_t i = 0; i < len; i++) {
+          JS::RootedValue ele(ctx);
+          if (!JS_GetElement(ctx, obj, i, &ele)) {
+            resVec[i] = OCJS::JSValuePtr(
+              new OCJS::JSStringValue("Failed to get array element (this shouldn't happen!)"));
+          } else {
+            resVec[i] = convertObjectToJSValue(ele);
+          }
+        }
+        return OCJS::JSValuePtr(new OCJS::JSArrayValue(resVec));
+      }
+
+      {
+        // just a regular ol' object
+        std::unordered_map<std::u16string, OCJS::JSValuePtr> res;
+
+        JS::Rooted<JS::IdVector> ids(ctx, JS::IdVector(ctx));
+        if (!JS_Enumerate(ctx, obj, &ids)) {
+          return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to enumerate object (this shouldn't happen!)"));
+        }
+
+        for (size_t i = 0; i < ids.length(); i++) {
+          JS::RootedId id(ctx, ids[i]);
+          JS::RootedValue eleID(ctx);
+          if (!JS_IdToValue(ctx, id, &eleID)) {
+            return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to get key value (this shouldn't happen!)"));
+          }
+          JS::RootedString eleIDStr(ctx, JS::ToString(ctx, eleID));
+          std::u16string eleKey;
+          eleKey.resize(JS_GetStringLength(eleIDStr));
+          if (!JS_CopyStringChars(ctx, mozilla::Range<char16_t>(eleKey.data(), eleKey.length()), eleIDStr)) {
+            return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to get string chars (this shouldn't happen!)"));
+          }
+
+          JS::RootedValue ele(ctx);
+          if (!JS_GetPropertyById(ctx, obj, id, &ele)) {
+            res[eleKey] = OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to get ele value (this shouldn't happen!)"));
+          } else {
+            res[eleKey] = convertObjectToJSValue(ele);
+          }
+        }
+
+        return OCJS::JSValuePtr(new OCJS::JSMapValue(res));
+      }
+    }
+    case JSTYPE_SYMBOL:
+    case JSTYPE_STRING: {
+      JS::RootedString str(ctx, JS::ToString(ctx, val));
+      std::u16string res;
+      res.resize(JS_GetStringLength(str));
+      if (!JS_CopyStringChars(ctx, mozilla::Range<char16_t>(res.data(), res.length()), str)) {
+        return OCJS::JSValuePtr(new OCJS::JSStringValue("Failed to get string chars (this shouldn't happen!)"));
+      }
+
+      return OCJS::JSValuePtr(new OCJS::JSStringValue(res));
+    }
+    case JSTYPE_BIGINT:
+    case JSTYPE_NUMBER: {
+      double d = NAN;
+      if (!JS::ToNumber(ctx, val, &d)) {
+        d = NAN;
+      }
+      return OCJS::JSValuePtr(new OCJS::JSDoubleValue(d));
+    }
+    case JSTYPE_BOOLEAN: {
+      return OCJS::JSValuePtr(new OCJS::JSBooleanValue(JS::ToBoolean(val)));
+    }
+    case JSTYPE_FUNCTION:
+    case JSTYPE_UNDEFINED:
+    case JSTYPE_NULL:
+    case JSTYPE_LIMIT:
+    default: {
+      return OCJS::JSValuePtr(new OCJS::JSNullValue());
+    }
+  }
 }

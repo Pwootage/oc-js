@@ -18,7 +18,7 @@ public:
   DukTapeEngineNative();
   ~DukTapeEngineNative() override;
 
-  std::future<JSValuePtr> next(JSValuePtr next) override;
+  std::future<OCJS::JSValuePtr> next(OCJS::JSValuePtr next) override;
   [[nodiscard]] size_t getMaxMemory() const override;
   void setMaxMemory(size_t maxMemory) override;
   [[nodiscard]] size_t getAllocatedMemory() const override;
@@ -31,21 +31,21 @@ private:
   duk_context *context = nullptr;
 
   //JS engine stuff
-  JSValuePtr compileAndExecute(const std::string& src, const std::string &filename);
-  void pushJSValue(const JSValuePtr& ptr);
-  JSValuePtr convertObjectToJSValue(duk_idx_t idx);
+  OCJS::JSValuePtr compileAndExecute(const std::string& src, const std::string &filename);
+  void pushJSValue(const OCJS::JSValuePtr& ptr);
+  OCJS::JSValuePtr convertObjectToJSValue(duk_idx_t idx);
 
   // Thread stuff
   std::thread mainThread;
   void mainThreadFn();
-  JSValuePtr yield(const JSValuePtr& output);
+  OCJS::JSValuePtr yield(const OCJS::JSValuePtr& output);
 
   std::mutex executionMutex;
   std::condition_variable engineWait;
   std::unique_lock<std::mutex> engineLock;
-  std::optional<JSValuePtr> nextInput = std::nullopt;
-  std::optional<std::promise<JSValuePtr>> outputPromise = std::make_optional(std::promise<JSValuePtr>());
-  std::optional<JSValuePtr> deadResult = std::nullopt;
+  std::optional<OCJS::JSValuePtr> nextInput = std::nullopt;
+  std::optional<std::promise<OCJS::JSValuePtr>> outputPromise = std::make_optional(std::promise<OCJS::JSValuePtr>());
+  std::optional<OCJS::JSValuePtr> deadResult = std::nullopt;
 
   bool shouldKill{false};
   bool isDead{false};

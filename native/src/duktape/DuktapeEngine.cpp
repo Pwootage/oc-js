@@ -47,13 +47,13 @@ JNIEXPORT jobject JNICALL
 Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1next(JNIEnv *env, jobject self, jobject next) {
   DukTapeEngineNative *engine = getDuktapeFromJava(env, self);
   if (engine != nullptr) {
-    auto value = JSValue::fromJVM(env, next);
+    auto value = OCJS::JSValue::fromJVM(env, next);
 
 //    DukTapeEngineNative::debug_print(u"Recieved next: " + nextVal);
-    future<JSValuePtr> resFuture = engine->next(value);
+    future<OCJS::JSValuePtr> resFuture = engine->next(value);
     auto status = resFuture.wait_for(chrono::seconds(1));
     if (status == future_status::ready) {
-      JSValuePtr res = resFuture.get();
+      OCJS::JSValuePtr res = resFuture.get();
 //      DukTapeEngineNative::debug_print(u"Recieved next result: " + res);
       return res->toJVM(env);
     } else {
@@ -92,7 +92,7 @@ Java_com_pwootage_oc_js_duktape_DuktapeEngine_native_1get_1available_1memory(JNI
 
 
 void InitializeDuktape(JNIEnv *env, jobject obj) {
-  JSValue::jvmInit(env);
+  OCJS::JSValue::jvmInit(env);
 
   jclass local = env->FindClass("com/pwootage/oc/js/duktape/DuktapeEngine");
   // this global ref is never freed (naturally)

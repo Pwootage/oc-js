@@ -13,7 +13,7 @@ class JSEngine {
 public:
   virtual ~JSEngine() = default;
 
-  virtual std::future<JSValuePtr> next(JSValuePtr next) = 0;
+  virtual std::future<OCJS::JSValuePtr> next(OCJS::JSValuePtr next) = 0;
   [[nodiscard]] virtual size_t getMaxMemory() const = 0;
   virtual void setMaxMemory(size_t maxMemory) = 0;
   [[nodiscard]] virtual size_t getAllocatedMemory() const = 0;

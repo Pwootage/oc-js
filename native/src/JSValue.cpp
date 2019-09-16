@@ -4,6 +4,8 @@
 #include <codecvt>
 #include <locale>
 
+namespace OCJS {
+
 #if JS_GENERATE_JVM_CONVERT
 
 bool initialized = false;
@@ -112,7 +114,7 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
   //TODO: add infinite recursion protection (in case they created a cyclic object somehow)
 
   if (env->IsInstanceOf(obj, JSStringValue_class)) {
-    jstring jstr = (jstring)env->GetObjectField(obj, JSStringValue_value);
+    jstring jstr = (jstring) env->GetObjectField(obj, JSStringValue_value);
     const jchar *jstrChars = env->GetStringChars(jstr, nullptr);
     std::u16string str(reinterpret_cast<const char16_t *>(jstrChars), env->GetStringLength(jstr));
     env->ReleaseStringChars(jstr, jstrChars);
@@ -127,7 +129,7 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
     return JSValuePtr(new JSDoubleValue(d));
   }
   if (env->IsInstanceOf(obj, JSArrayValue_class)) {
-    jobjectArray arr = (jobjectArray)env->GetObjectField(obj, JSArrayValue_value);
+    jobjectArray arr = (jobjectArray) env->GetObjectField(obj, JSArrayValue_value);
     std::vector<JSValuePtr> res;
     res.resize(env->GetArrayLength(arr));
     for (size_t i = 0; i < res.size(); i++) {
@@ -138,7 +140,7 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
     return JSValuePtr(new JSArrayValue(res));
   }
   if (env->IsInstanceOf(obj, JSByteArrayValue_class)) {
-    jbyteArray arr = (jbyteArray)env->GetObjectField(obj, JSByteArrayValue_value);
+    jbyteArray arr = (jbyteArray) env->GetObjectField(obj, JSByteArrayValue_value);
     std::vector<uint8_t> bytes;
     bytes.resize(env->GetArrayLength(arr));
     env->GetByteArrayRegion(arr, 0, bytes.size(), reinterpret_cast<jbyte *>(bytes.data()));
@@ -147,12 +149,12 @@ JSValuePtr JSValue::fromJVM(JNIEnv *env, jobject obj) {
   if (env->IsInstanceOf(obj, JSMapValue_class)) {
     jobject map = env->GetObjectField(obj, JSMapValue_value);
     jobject keySet = env->CallObjectMethod(map, HashMap_keySet);
-    jobjectArray arr = (jobjectArray)env->CallObjectMethod(keySet, Set_toArray);
+    jobjectArray arr = (jobjectArray) env->CallObjectMethod(keySet, Set_toArray);
 
     std::unordered_map<std::u16string, JSValuePtr> res;
     size_t len = env->GetArrayLength(arr);
     for (size_t i = 0; i < len; i++) {
-      jstring key = (jstring)env->GetObjectArrayElement(arr, i);
+      jstring key = (jstring) env->GetObjectArrayElement(arr, i);
       const jchar *jstrChars = env->GetStringChars(key, nullptr);
       std::u16string keyStr(reinterpret_cast<const char16_t *>(jstrChars), env->GetStringLength(key));
       env->ReleaseStringChars(key, jstrChars);
@@ -226,7 +228,7 @@ jobject JSNullValue::toJVM(JNIEnv *env) {
 
 JSStringValue *JSValue::asString() {
   if (getType() == Type::STRING) {
-    return (JSStringValue*)this;
+    return (JSStringValue *) this;
   } else {
     return nullptr;
   }
@@ -234,7 +236,7 @@ JSStringValue *JSValue::asString() {
 
 JSBooleanValue *JSValue::asBoolean() {
   if (getType() == Type::BOOLEAN) {
-    return (JSBooleanValue*)this;
+    return (JSBooleanValue *) this;
   } else {
     return nullptr;
   }
@@ -242,7 +244,7 @@ JSBooleanValue *JSValue::asBoolean() {
 
 JSDoubleValue *JSValue::asDouble() {
   if (getType() == Type::DOUBLE) {
-    return (JSDoubleValue*)this;
+    return (JSDoubleValue *) this;
   } else {
     return nullptr;
   }
@@ -250,7 +252,7 @@ JSDoubleValue *JSValue::asDouble() {
 
 JSArrayValue *JSValue::asArray() {
   if (getType() == Type::ARRAY) {
-    return (JSArrayValue*)this;
+    return (JSArrayValue *) this;
   } else {
     return nullptr;
   }
@@ -258,7 +260,7 @@ JSArrayValue *JSValue::asArray() {
 
 JSByteArrayValue *JSValue::asByteArray() {
   if (getType() == Type::BYTE_ARRAY) {
-    return (JSByteArrayValue*)this;
+    return (JSByteArrayValue *) this;
   } else {
     return nullptr;
   }
@@ -266,7 +268,7 @@ JSByteArrayValue *JSValue::asByteArray() {
 
 JSMapValue *JSValue::asMap() {
   if (getType() == Type::MAP) {
-    return (JSMapValue*)this;
+    return (JSMapValue *) this;
   } else {
     return nullptr;
   }
@@ -274,7 +276,7 @@ JSMapValue *JSValue::asMap() {
 
 JSNullValue *JSValue::asNull() {
   if (getType() == Type::NULL_TYPE) {
-    return (JSNullValue*)this;
+    return (JSNullValue *) this;
   } else {
     return nullptr;
   }
@@ -282,7 +284,7 @@ JSNullValue *JSValue::asNull() {
 
 JSStringValue::JSStringValue(std::u16string value) : value(std::move(value)) {}
 
-JSStringValue::JSStringValue(const std::string& value) {
+JSStringValue::JSStringValue(const std::string &value) {
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   this->value = convert.from_bytes(value);
 }
@@ -331,4 +333,6 @@ JSNullValue::JSNullValue() = default;
 
 JSValue::Type JSNullValue::getType() {
   return JSValue::Type::NULL_TYPE;
+}
+
 }
