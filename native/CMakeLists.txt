@@ -47,7 +47,7 @@ set(SOURCE_FILES
   src/spidermonkey/SpiderMonkeyEngine.cpp
   src/spidermonkey/SpiderMonkeyEngineNative.cpp
   src/spidermonkey/SpiderMonkeyEngineNative.h
-  src/duktape/duktape.cpp
+  lib/duktape.cpp
   src/duktape/DuktapeEngine.cpp
   src/duktape/DuktapeEngineNative.cpp
   src/duktape/DuktapeEngineNative.h
