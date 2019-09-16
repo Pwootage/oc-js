@@ -30,11 +30,12 @@ DukTapeEngineNative::~DukTapeEngineNative() {
     //this->next(R"({"state": "error", "value": "kill"})");
     pthread_cancel(this->mainThread->native_handle());
   }
-  debug_print("JS waiting for main thread");
   if (this->mainThread != nullptr) {
+    debug_print("JS waiting for main thread");
     this->mainThread->join();
-    this->mainThread = nullptr;
   }
+  delete this->mainThread;
+  this->mainThread = nullptr;
   duk_destroy_heap(this->context);
   this->context = nullptr;
   debug_print("JS main thread kill complete");

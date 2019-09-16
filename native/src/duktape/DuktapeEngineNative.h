@@ -5,40 +5,23 @@
 #ifndef OCJS_DukTapeEngineNativeNATIVE_H
 #define OCJS_DukTapeEngineNativeNATIVE_H
 
-#include <jni.h>
-#include <memory>
-#include <functional>
-#include <thread>
-#include <future>
-#include <string>
-#include <mutex>
-#include <optional>
+#include "../JSEngine.hpp"
 #include "duktape.h"
-#include "JSValue.hpp"
 
 /**
  * The native equivalent of DukTapeEngine, where all the DukTape-related classes are stored.
  *
  * We could store these as a bunch of 'long' in the Java class, but that also leads to issues
  * */
-class DukTapeEngineNative {
+class DukTapeEngineNative : public JSEngine {
 public:
   DukTapeEngineNative();
-  ~DukTapeEngineNative();
+  ~DukTapeEngineNative() override;
 
-  std::thread *mainThread;
-
-  std::future<JSValuePtr> next(JSValuePtr next);
-
-  static constexpr size_t MAX_STR_SIZE = 1024 * 1024;
-
-  static void debug_print(const std::string& str);
-
-  [[nodiscard]] size_t getMaxMemory() const;
-  void setMaxMemory(size_t maxMemory);
-  [[nodiscard]] size_t getAllocatedMemory() const;
-
-
+  std::future<JSValuePtr> next(JSValuePtr next) override;
+  [[nodiscard]] size_t getMaxMemory() const override;
+  void setMaxMemory(size_t maxMemory) override;
+  [[nodiscard]] size_t getAllocatedMemory() const override;
 private:
   // memory
   size_t maxMemory = 16 * 1024 * 1024;
@@ -51,9 +34,9 @@ private:
   JSValuePtr compileAndExecute(const std::string& src, const std::string &filename);
   void pushJSValue(const JSValuePtr& ptr);
   JSValuePtr convertObjectToJSValue(duk_idx_t idx);
-  //  JS::RootedObject convertException();
 
   // Thread stuff
+  std::thread *mainThread;
   void mainThreadFn();
   JSValuePtr yield(const JSValuePtr& output);
 
@@ -68,18 +51,18 @@ private:
   bool isDead{false};
 
   // js callbacks
-
-  // To java (eventually)
   static duk_ret_t __yield(duk_context *ctx);
   static duk_ret_t __compile(duk_context *ctx);
 
-  // memory functions
+  // duk functions
   static void* engine_alloc(void* usrData, size_t size);
   static void* engine_realloc(void* usrData, void *ptr, size_t size);
   static void engine_free(void *usrData, void *ptr);
   static void engine_fatal(void *usrData, const char *msg);
-
   friend duk_bool_t duk_exec_timeout(void *udata);
+
+  // utils
+  static void debug_print(const std::string& str);
 };
 
 

@@ -2,7 +2,6 @@
 #include "com_pwootage_oc_js_duktape_DuktapeEngine.h"
 #include "com_pwootage_oc_js_duktape_DuktapeStatic.h"
 #include "DuktapeEngineNative.h"
-#include "JSValue.hpp"
 #include <string>
 
 using namespace std;

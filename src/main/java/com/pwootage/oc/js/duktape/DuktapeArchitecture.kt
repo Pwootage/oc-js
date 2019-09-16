@@ -11,7 +11,6 @@ import li.cil.oc.api.machine.Machine
  */
 @Architecture.Name("ES5 (duktape)")
 class DuktapeArchitecture(_machine: Machine) : JSArchitectureBase(_machine) {
-
   override fun createEngine(): JSEngine {
     return DuktapeEngine(this)
   }

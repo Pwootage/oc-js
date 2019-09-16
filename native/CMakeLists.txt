@@ -44,13 +44,16 @@ include_directories(SYSTEM ${JNI_INCLUDE_DIRS} ${GEN_DIR} include)
 # Source
 set(SOURCE_FILES
   ${JNI_GEN_HEADERS}
-  duktape.cpp
-  SpiderMonkeyEngine.cpp
-  SpiderMonkeyEngineNative.cpp
-  SpiderMonkeyEngineNative.h
-  DuktapeEngine.cpp
-  DuktapeEngineNative.cpp
-  DuktapeEngineNative.h JSValue.cpp JSValue.hpp)
+  src/spidermonkey/SpiderMonkeyEngine.cpp
+  src/spidermonkey/SpiderMonkeyEngineNative.cpp
+  src/spidermonkey/SpiderMonkeyEngineNative.h
+  src/duktape/duktape.cpp
+  src/duktape/DuktapeEngine.cpp
+  src/duktape/DuktapeEngineNative.cpp
+  src/duktape/DuktapeEngineNative.h
+  src/JSValue.cpp
+  src/JSValue.hpp
+  src/JSEngine.hpp)
 
 # imported libs
 add_library(mozjs SHARED IMPORTED)
@@ -60,7 +63,7 @@ add_library(mozjs SHARED IMPORTED)
 add_library(ocjs SHARED ${SOURCE_FILES})
 target_link_libraries(ocjs ${JNI_LIBRARIES} mozjs)
 
-add_executable(ocjs_test test_main.cpp)
+add_executable(ocjs_test src/test_main.cpp)
 target_link_libraries(ocjs_test ocjs)
 
 if (UNIX AND NOT APPLE)
