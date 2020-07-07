@@ -18,7 +18,7 @@
     "@types/node": "^12.7.4",
     "@types/sleep": "^0.0.7",
     "@types/uuid": "^3.4.5",
-    "electron": "^6.0.8",
+    "electron": "^7.2.4",
     "electron-packager": "^14.0.6",
     "electron-rebuild": "^1.8.6",
     "fs-extra": "^8.1.0",
